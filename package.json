@@ -1,0 +1,13 @@
+{
+  "name": "villa-inventory-dashboard",
+  "version": "1.0.0",
+  "description": "Villa Inventory Dashboard — floor plan visualization",
+  "homepage": ".",
+  "scripts": {
+    "start": "node server.js",
+    "build": "node build.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

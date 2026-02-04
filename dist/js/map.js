@@ -1,0 +1,165 @@
+// map.js — Floor plan rendering and pins (SVG overlay)
+
+class FloorMap {
+  constructor(containerId) {
+    this.container = document.getElementById(containerId);
+    this.pinsLayer = document.getElementById('pins-layer');
+    this.floorPlan = document.getElementById('floor-plan');
+    this.tooltip = document.getElementById('tooltip');
+
+    this.rooms = {};
+    this.roomsData = {};
+    this.scale = 1;
+
+    this.init();
+  }
+
+  async init() {
+    const res = await fetch('data/rooms.json');
+    this.rooms = await res.json();
+
+    window.addEventListener('resize', () => this.updateScale());
+    this.floorPlan.addEventListener('load', () => this.updateScale());
+
+    const debug = new URLSearchParams(location.search).get('debug') === '1';
+    if (debug) this.setupDebugClick();
+  }
+
+  setupDebugClick() {
+    this.container.addEventListener('click', (e) => {
+      const rect = this.floorPlan.getBoundingClientRect();
+      const xDisplay = e.clientX - rect.left;
+      const yDisplay = e.clientY - rect.top;
+      if (xDisplay < 0 || yDisplay < 0 || xDisplay > rect.width || yDisplay > rect.height) return;
+      const xNatural = Math.round(xDisplay / this.scale);
+      const yNatural = Math.round(yDisplay / this.scale);
+      console.log('Click coords (image):', xNatural, yNatural);
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', xDisplay);
+      circle.setAttribute('cy', yDisplay);
+      circle.setAttribute('r', 5);
+      circle.setAttribute('fill', 'red');
+      this.pinsLayer.appendChild(circle);
+    });
+  }
+
+  updateScale() {
+    const rect = this.floorPlan.getBoundingClientRect();
+    const containerRect = this.container.getBoundingClientRect();
+
+    // Вычисляем реальный масштаб изображения
+    this.scale = rect.width / CONFIG.FLOOR_PLAN_WIDTH;
+
+    // SVG должен точно совпадать с изображением
+    this.pinsLayer.style.position = 'absolute';
+    this.pinsLayer.style.top = '0';
+    this.pinsLayer.style.left = '0';
+    this.pinsLayer.style.width = rect.width + 'px';
+    this.pinsLayer.style.height = rect.height + 'px';
+    this.pinsLayer.setAttribute('width', rect.width);
+    this.pinsLayer.setAttribute('height', rect.height);
+    this.pinsLayer.setAttribute('viewBox', '0 0 ' + rect.width + ' ' + rect.height);
+
+    // DEBUG: проверка масштаба и размеров
+    console.log('[PIN] Scale: image size', rect.width, 'x', rect.height, '| natural plan', CONFIG.FLOOR_PLAN_WIDTH, 'x', CONFIG.FLOOR_PLAN_HEIGHT, '| scale =', this.scale, '(= rect.width / FLOOR_PLAN_WIDTH)');
+
+    this.renderPins();
+  }
+
+  setData(roomsData) {
+    this.roomsData = roomsData || {};
+    this.renderPins();
+  }
+
+  renderPins() {
+    this.pinsLayer.innerHTML = '';
+
+    const xOffset = CONFIG.COORD_X_OFFSET || 0;
+    const yOffset = CONFIG.COORD_Y_OFFSET || 0;
+    const xScale = CONFIG.COORD_X_SCALE || 1.0;
+    const yScale = CONFIG.COORD_Y_SCALE || 1.0;
+
+    const roomCodes = Object.keys(this.rooms);
+    console.log('[PIN] 4. map.js renderPins: rooms (pins) count =', roomCodes.length, '| formula: x = (coords.x * xScale * scale) + xOffset, y = (coords.y * yScale * scale) + yOffset');
+    console.log('[PIN] Calibration: xOffset=' + xOffset, 'yOffset=' + yOffset, 'xScale=' + xScale, 'yScale=' + yScale, 'scale=' + this.scale);
+
+    Object.entries(this.rooms).forEach(([code, coords]) => {
+      const data = this.roomsData[code] || { items: [], dominantCategory: 'empty' };
+      const isEmpty = data.dominantCategory === 'empty';
+      const color = isEmpty ? '#E0E0E0' : (CONFIG.CATEGORY_COLORS[data.dominantCategory] || CONFIG.CATEGORY_COLORS.other);
+
+      // Применить калибровку: позиция из rooms.json в натуральных px → экранные px
+      const x = (coords.x * xScale * this.scale) + xOffset;
+      const y = (coords.y * yScale * this.scale) + yOffset;
+
+      console.log('[PIN] Room "' + code + '" → from rooms.json x:' + coords.x + ', y:' + coords.y + ' → screen x:' + Math.round(x) + ', y:' + Math.round(y) + ' | items:' + (data.items ? data.items.length : 0));
+
+      const baseRadius = CONFIG.PIN_SIZE / 2;
+
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', x);
+      circle.setAttribute('cy', y);
+      circle.setAttribute('r', baseRadius);
+      circle.setAttribute('fill', color);
+      circle.setAttribute('stroke', isEmpty ? '#999' : '#fff');
+      circle.setAttribute('stroke-width', isEmpty ? '1.5' : '2');
+      circle.setAttribute('data-code', code);
+      circle.setAttribute('data-base-r', baseRadius);
+      circle.classList.add('pin');
+
+      if (isEmpty) {
+        circle.classList.add('empty');
+      }
+
+      // Добавить фильтр для тени (лучшая видимость на белом фоне)
+      circle.style.filter = 'drop-shadow(1px 1px 2px rgba(0,0,0,0.3))';
+
+      // Hover эффект через изменение радиуса (без transform!)
+      circle.addEventListener('mouseenter', (e) => {
+        circle.setAttribute('r', baseRadius * 1.3);
+        this.showTooltip(e, code, coords.name);
+      });
+
+      circle.addEventListener('mouseleave', () => {
+        circle.setAttribute('r', baseRadius);
+        this.hideTooltip();
+      });
+
+      circle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.onPinClick(code);
+      });
+
+      this.pinsLayer.appendChild(circle);
+    });
+  }
+
+  showTooltip(e, code, name) {
+    this.tooltip.textContent = `${code} — ${name}`;
+    this.tooltip.style.left = e.clientX + 10 + 'px';
+    this.tooltip.style.top = e.clientY - 30 + 'px';
+    this.tooltip.classList.remove('hidden');
+  }
+
+  hideTooltip() {
+    this.tooltip.classList.add('hidden');
+  }
+
+  onPinClick(code) {
+    if (this.onRoomSelect) {
+      this.onRoomSelect(code);
+    }
+  }
+
+  highlightRooms(visibleCodes) {
+    const pins = this.pinsLayer.querySelectorAll('.pin');
+    pins.forEach(pin => {
+      const code = pin.getAttribute('data-code');
+      if (visibleCodes.includes(code)) {
+        pin.classList.remove('dimmed');
+      } else {
+        pin.classList.add('dimmed');
+      }
+    });
+  }
+}
