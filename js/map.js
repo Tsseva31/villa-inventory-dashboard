@@ -25,8 +25,25 @@ class FloorMap {
 
     this.updateScale();
 
+    // ResizeObserver: при первом валидном размере контейнера (и при изменении) — пересчёт SVG
+    this.initResizeObserver();
+
     const debug = new URLSearchParams(location.search).get('debug') === '1';
     if (debug) this.setupDebugClick();
+  }
+
+  initResizeObserver() {
+    const wrapper = this.container.querySelector('.map-wrapper');
+    if (!wrapper) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect;
+      if (width > 100 && height > 100) {
+        this.updateScale();
+      }
+    });
+    observer.observe(wrapper);
+    this.resizeObserver = observer;
   }
 
   waitForImage() {
@@ -59,7 +76,11 @@ class FloorMap {
   }
 
   updateScale() {
-    const rect = this.floorPlan.getBoundingClientRect();
+    const wrapper = this.container.querySelector('.map-wrapper');
+    const rect = wrapper ? wrapper.getBoundingClientRect() : this.floorPlan.getBoundingClientRect();
+    if (typeof console !== 'undefined' && console.log) {
+      console.log('[PIN] updateScale:', { clientWidth: wrapper && wrapper.clientWidth, clientHeight: wrapper && wrapper.clientHeight, rect: rect.width + 'x' + rect.height });
+    }
     this.scale = rect.width / CONFIG.FLOOR_PLAN_WIDTH;
 
     // SVG всегда в натуральных координатах плана (1545×763); масштабирование через viewBox
