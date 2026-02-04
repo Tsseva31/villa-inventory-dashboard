@@ -37,6 +37,7 @@ class App {
     console.log('[PIN] 1. rooms.json: rooms count =', roomsJsonKeys.length);
     console.log('[PIN] rooms.json first 3 keys:', roomsJsonKeys.slice(0, 3));
     await this.loadData();
+    await this.waitForFloorPlanImage();
 
     this.setupFilters();
     this.setupSidebar();
@@ -70,6 +71,16 @@ class App {
     }
 
     this.hideLoading();
+  }
+
+  waitForFloorPlanImage() {
+    const img = document.querySelector('#floor-plan');
+    if (!img) return Promise.resolve();
+    if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      img.addEventListener('load', resolve, { once: true });
+      img.addEventListener('error', resolve, { once: true });
+    });
   }
 
   /** Диагностика: для каждого item — связь с комнатой и координаты из rooms.json */
