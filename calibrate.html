@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Floor plan calibration</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; display: flex; gap: 24px; align-items: flex-start; }
+    h1 { margin: 0 0 16px; font-size: 1.25rem; }
+    .plan-wrap { position: relative; width: 1545px; height: 763px; flex-shrink: 0; }
+    .plan-wrap img { display: block; width: 1545px; height: 763px; }
+    .plan-wrap canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
+    .click-layer { position: absolute; left: 0; top: 0; width: 1545px; height: 763px; cursor: crosshair; }
+    .sidebar { min-width: 280px; }
+    .next-hint { background: #e8f4fc; padding: 10px 12px; border-radius: 8px; margin-bottom: 12px; font-weight: 500; }
+    .list { list-style: none; padding: 0; margin: 0 0 12px; max-height: 400px; overflow-y: auto; }
+    .list li { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border-bottom: 1px solid #eee; }
+    .list li button { margin-left: 8px; cursor: pointer; color: #c00; background: none; border: none; padding: 2px 6px; }
+    .list li button:hover { text-decoration: underline; }
+    .export-btn { padding: 10px 20px; background: #333; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 1rem; }
+    .export-btn:hover { background: #555; }
+  </style>
+</head>
+<body>
+  <div>
+    <h1>Floor plan calibration</h1>
+    <p style="margin:0 0 12px;color:#666;">Click the center of each room in order. Remove wrong clicks from the list, then Export JSON.</p>
+    <div class="plan-wrap">
+      <img id="plan" src="assets/floor-plan-mc.png" alt="Floor plan" width="1545" height="763">
+      <canvas id="markers" width="1545" height="763"></canvas>
+      <div class="click-layer" id="click-layer"></div>
+    </div>
+  </div>
+  <aside class="sidebar">
+    <div class="next-hint" id="next-hint">Loading…</div>
+    <ul class="list" id="points-list"></ul>
+    <button type="button" class="export-btn" id="export-btn">Export JSON</button>
+  </aside>
+
+  <script>
+    const FLOOR_W = 1545;
+    const FLOOR_H = 763;
+
+    let roomOrder = [];
+    let points = [];
+
+    async function loadRoomOrder() {
+      const res = await fetch('data/rooms.json');
+      const data = await res.json();
+      roomOrder = Object.keys(data).map(code => ({ code, name: data[code].name || code }));
+      updateNextHint();
+    }
+
+    function updateNextHint() {
+      const next = roomOrder[points.length];
+      const el = document.getElementById('next-hint');
+      el.textContent = next ? `Next: ${next.code} — ${next.name}` : 'All rooms done. Export or remove a point to re-click.';
+    }
+
+    function redrawMarkers() {
+      const canvas = document.getElementById('markers');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, FLOOR_W, FLOOR_H);
+      points.forEach((p, i) => {
+        ctx.fillStyle = '#c00';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = '#fff';
+        ctx.font = '12px sans-serif';
+        ctx.fillText(p.code, p.x + 8, p.y + 4);
+      });
+    }
+
+    function syncList() {
+      const ul = document.getElementById('points-list');
+      ul.innerHTML = '';
+      points.forEach((p, i) => {
+        const li = document.createElement('li');
+        li.textContent = `${p.code}: ${p.x}, ${p.y}`;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = 'Remove';
+        const idx = i;
+        btn.addEventListener('click', () => {
+          points.splice(idx, 1);
+          syncList();
+          redrawMarkers();
+          updateNextHint();
+        });
+        li.appendChild(btn);
+        ul.appendChild(li);
+      });
+    }
+
+    function addPoint(x, y) {
+      const next = roomOrder[points.length];
+      if (!next) return;
+      points.push({ code: next.code, name: next.name, x: Math.round(x), y: Math.round(y) });
+      syncList();
+      redrawMarkers();
+      updateNextHint();
+    }
+
+    document.getElementById('click-layer').addEventListener('click', (e) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const scaleX = FLOOR_W / rect.width;
+      const scaleY = FLOOR_H / rect.height;
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
+      if (x >= 0 && x <= FLOOR_W && y >= 0 && y <= FLOOR_H) addPoint(x, y);
+    });
+
+    document.getElementById('export-btn').addEventListener('click', () => {
+      const out = {};
+      points.forEach(p => { out[p.code] = { name: p.name, x: p.x, y: p.y }; });
+      const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'rooms.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    loadRoomOrder().then(() => {
+      updateNextHint();
+    });
+  </script>
+</body>
+</html>
