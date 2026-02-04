@@ -19,10 +19,25 @@ class FloorMap {
     this.rooms = await res.json();
 
     window.addEventListener('resize', () => this.updateScale());
-    this.floorPlan.addEventListener('load', () => this.updateScale());
+
+    // Ждём загрузки изображения (в т.ч. из кэша — load не срабатывает)
+    await this.waitForImage();
+
+    this.updateScale();
 
     const debug = new URLSearchParams(location.search).get('debug') === '1';
     if (debug) this.setupDebugClick();
+  }
+
+  waitForImage() {
+    return new Promise((resolve) => {
+      if (this.floorPlan.complete && this.floorPlan.naturalWidth > 0) {
+        resolve();
+      } else {
+        this.floorPlan.addEventListener('load', resolve, { once: true });
+        this.floorPlan.addEventListener('error', resolve, { once: true });
+      }
+    });
   }
 
   setupDebugClick() {
