@@ -151,8 +151,10 @@ class App {
       let items = itemsByRoom[code] || [];
 
       items = items.filter(item => {
-        if (this.filters.category && item.category !== this.filters.category) return false;
-        if (this.filters.condition && item.condition !== this.filters.condition) return false;
+        const itemCat = (item.category && String(item.category).trim()) || 'unknown';
+        const filterCat = (this.filters.category && String(this.filters.category).trim()) || '';
+        if (filterCat && itemCat !== filterCat) return false;
+        if (this.filters.condition && (item.condition || '') !== this.filters.condition) return false;
         if (this.filters.search) {
           const search = this.filters.search.toLowerCase();
           const desc = (item.description || '').toLowerCase();
@@ -188,9 +190,44 @@ class App {
     this.currentRoomsData = roomsData;
   }
 
+  filterItems() {
+    const categorySelect = document.getElementById('filter-category');
+    const conditionSelect = document.getElementById('filter-condition');
+    if (!categorySelect || !conditionSelect) return;
+
+    const selectedCategory = categorySelect.value;
+    const selectedCondition = conditionSelect.value;
+
+    const items = document.querySelectorAll('.items-list .item-card, .items-list .item');
+    let visibleCount = 0;
+
+    items.forEach(card => {
+      const itemCategory = card.dataset.category || '';
+      const itemCondition = card.dataset.condition || '';
+
+      const categoryMatch = !selectedCategory || selectedCategory === '' || itemCategory === selectedCategory;
+      const conditionMatch = !selectedCondition || selectedCondition === '' || itemCondition === selectedCondition;
+
+      if (categoryMatch && conditionMatch) {
+        card.style.display = '';
+        visibleCount++;
+      } else {
+        card.style.display = 'none';
+      }
+    });
+
+    const countEl = document.getElementById('items-count');
+    if (countEl) countEl.textContent = visibleCount + ' items';
+  }
+
   setupFilters() {
     const categorySelect = document.getElementById('filter-category');
-    Object.entries(CONFIG.CATEGORY_ICONS).forEach(([key, icon]) => {
+    categorySelect.innerHTML = '';
+    const allCatOption = document.createElement('option');
+    allCatOption.value = '';
+    allCatOption.textContent = 'All categories';
+    categorySelect.appendChild(allCatOption);
+    Object.entries(CONFIG.CATEGORY_ICONS || {}).forEach(([key, icon]) => {
       const option = document.createElement('option');
       option.value = key;
       option.textContent = icon + ' ' + key;
@@ -199,7 +236,7 @@ class App {
 
     const conditionSelect = document.getElementById('filter-condition');
     conditionSelect.innerHTML = '';
-    (CONFIG.CONDITIONS || Object.keys(CONFIG.CONDITION_COLORS).map(v => ({ value: v, label: v }))).forEach(function (opt) {
+    (CONFIG.CONDITIONS || Object.keys(CONFIG.CONDITION_COLORS || {}).map(v => ({ value: v, label: v }))).forEach(opt => {
       const option = document.createElement('option');
       option.value = opt.value;
       option.textContent = opt.label;
@@ -209,16 +246,19 @@ class App {
     document.getElementById('filter-category').addEventListener('change', (e) => {
       this.filters.category = e.target.value;
       this.applyFilters();
+      if (this.sidebar && !this.sidebar.classList.contains('hidden')) this.filterItems();
     });
 
     document.getElementById('filter-condition').addEventListener('change', (e) => {
       this.filters.condition = e.target.value;
       this.applyFilters();
+      if (this.sidebar && !this.sidebar.classList.contains('hidden')) this.filterItems();
     });
 
     document.getElementById('filter-search').addEventListener('input', (e) => {
       this.filters.search = e.target.value.trim();
       this.applyFilters();
+      if (this.sidebar && !this.sidebar.classList.contains('hidden')) this.filterItems();
     });
   }
 
@@ -250,17 +290,14 @@ class App {
   showRoomDetails(code) {
     console.log('[App] showRoomDetails called with:', code);
     const sidebar = document.getElementById('sidebar');
-    console.log('[App] Sidebar element:', sidebar, '| currentRoomsData exists:', !!this.currentRoomsData);
-    const roomData = this.currentRoomsData && this.currentRoomsData[code] ? this.currentRoomsData[code] : { items: [] };
+    this.sidebar = sidebar;
+    this.currentSidebarRoomCode = code;
     const roomCoords = this.roomsCoords[code] || { name: code };
-    const roomItems = roomData.items || [];
-    console.log('[App] Room items:', roomItems.length, roomItems);
-    roomItems.forEach(function (item) {
-      console.log('[App] Item photos:', item.id, item.photos, 'photo_count:', item.photo_count);
-    });
+    // Use all items in room (from getItemsByRoom) so sidebar list can be filtered by filterItems()
+    const byRoom = this.getItemsByRoom();
+    const roomItems = byRoom[code] || [];
 
     document.getElementById('room-title').textContent = code + ' — ' + roomCoords.name;
-    document.getElementById('items-count').textContent = roomItems.length + ' items';
 
     sidebar.classList.remove('hidden');
 
@@ -269,6 +306,7 @@ class App {
 
     if (roomItems.length === 0) {
       list.innerHTML = '<div class="no-items">No items</div>';
+      document.getElementById('items-count').textContent = '0 items';
     } else {
       roomItems.forEach(item => {
         try {
@@ -278,17 +316,50 @@ class App {
           console.error('[App] createItemElement failed:', item.id, err);
         }
       });
+      this.filterItems();
     }
   }
 
   createItemElement(item) {
-    console.log('[App] Creating item element for:', item.id, '| photos:', item.photos);
-    const itemEl = document.createElement('div');
-    itemEl.className = 'item-card';
+    // 🔍 ОТЛАДКА: проверка структуры данных из API
+    console.log('[DEBUG createItemElement] Item data:', {
+      id: item.id,
+      room_code: item.room_code,
+      category: item.category,
+      category_type: typeof item.category,
+      description: item.description,
+      condition: item.condition,
+      quantity: item.quantity,
+      photos: item.photos,
+      photo_count: item.photo_count
+    });
 
-    const categoryColor = (CONFIG.CATEGORY_COLORS && CONFIG.CATEGORY_COLORS[item.category]) || '#95A5A6';
+    const itemEl = document.createElement('div');
+    itemEl.className = 'item-card item';
+
+    const categoryName = (item.category && String(item.category).trim()) || 'unknown';
+    itemEl.dataset.category = categoryName;
+    itemEl.dataset.condition = item.condition || '';
+    itemEl.dataset.roomCode = item.room_code || '';
+
+    const categoryColor = (CONFIG.CATEGORY_COLORS && CONFIG.CATEGORY_COLORS[categoryName]) || '#95A5A6';
     const conditionColor = CONFIG.CONDITION_COLORS[item.condition] || '#888';
-    const icon = CONFIG.CATEGORY_ICONS[item.category] || '❓';
+    const icon = CONFIG.CATEGORY_ICONS[categoryName] || CONFIG.CATEGORY_ICONS.other || '❓';
+
+    const CATEGORY_LABELS = {
+      light: 'Light / Освещение',
+      chandelier: 'Chandelier / Люстра',
+      furniture: 'Furniture / Мебель',
+      art: 'Art / Искусство',
+      plumbing: 'Plumbing / Сантехника',
+      carpet: 'Carpet / Ковёр',
+      curtain: 'Curtain / Шторы',
+      tech: 'Tech / Техника',
+      spa: 'Spa / СПА',
+      other: 'Other / Другое',
+      unknown: '? Unknown'
+    };
+    const categoryLabel = CATEGORY_LABELS[categoryName] || categoryName;
 
     const header = document.createElement('div');
     header.className = 'item-header';
@@ -298,7 +369,14 @@ class App {
     const categoryBadge = document.createElement('span');
     categoryBadge.className = 'category-badge';
     categoryBadge.style.backgroundColor = categoryColor;
-    categoryBadge.textContent = item.category || '';
+    categoryBadge.style.color = '#fff';
+    categoryBadge.style.padding = '4px 8px';
+    categoryBadge.style.borderRadius = '4px';
+    categoryBadge.style.fontSize = '12px';
+    categoryBadge.style.fontWeight = 'bold';
+    categoryBadge.style.display = 'inline-block';
+    categoryBadge.style.marginBottom = '8px';
+    categoryBadge.textContent = categoryLabel;
     const conditionSpan = document.createElement('span');
     conditionSpan.className = 'item-condition';
     conditionSpan.style.backgroundColor = conditionColor;
@@ -309,6 +387,14 @@ class App {
 
     const body = document.createElement('div');
     body.className = 'item-body';
+    const roomCodeEl = document.createElement('div');
+    roomCodeEl.className = 'item-room-code';
+    roomCodeEl.style.fontSize = '14px';
+    roomCodeEl.style.fontWeight = 'bold';
+    roomCodeEl.style.color = '#666';
+    roomCodeEl.style.marginBottom = '4px';
+    roomCodeEl.textContent = item.room_code || '—';
+    body.appendChild(roomCodeEl);
     const description = document.createElement('div');
     description.className = 'item-description';
     description.textContent = item.description || '—';
@@ -321,9 +407,8 @@ class App {
     const itemPhotos = document.createElement('div');
     itemPhotos.className = 'item-photos';
     const photos = (item.photos && Array.isArray(item.photos)) ? item.photos : [];
-    console.log('[App] Item', item.id, 'photos array length:', photos.length, photos);
     if (photos.length > 0) {
-      photos.forEach(function (photoUrl) {
+      photos.forEach(photoUrl => {
         const urlStr = typeof photoUrl === 'string'
           ? photoUrl
           : (photoUrl && typeof photoUrl === 'object' && photoUrl.url)
@@ -336,12 +421,12 @@ class App {
         img.className = 'item-photo item-thumb';
         img.alt = 'Item photo';
         img.dataset.photoUrl = urlStr;
-        img.onerror = function () {
+        img.onerror = () => {
           console.error('[App] Failed to load photo:', urlStr);
           img.style.display = 'none';
         };
         itemPhotos.appendChild(img);
-      }.bind(this));
+      });
     }
     body.appendChild(itemPhotos);
 

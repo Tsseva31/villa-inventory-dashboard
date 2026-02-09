@@ -40,6 +40,7 @@ const CONFIG = {
     tech: '#607D8B',
     spa: '#1ABC9C',
     other: '#95A5A6',
+    unknown: '#999999',
     empty: '#FFFFFF'
   },
 
@@ -73,6 +74,7 @@ const CONFIG = {
     curtain: '🪟',
     tech: '📺',
     spa: '💆',
-    other: '❓'
+    other: '❓',
+    unknown: '❓'
   }
 };
