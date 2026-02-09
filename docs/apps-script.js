@@ -62,6 +62,8 @@ function getItems() {
       if (row[j]) photos.push(row[j]);
     }
 
+    // КРИТИЧНО: L=11 Состояние (текст: "Отличное", "Хорошее" и т.д.), M=12 Количество (число).
+    // Не путать индексы 11 и 12 — иначе в карточке Qty покажет состояние!
     items.push({
       id: row[0],              // A: ID
       date: row[1],            // B: Дата_создания
@@ -69,11 +71,11 @@ function getItems() {
       building_id: row[3],     // D: Building_ID
       zone_id: row[4],         // E: Zone_ID
       room_id: row[5],         // F: Room_ID
-      room_code: row[6],       // G: Комната_Код
-      category: row[7],        // H: Категория
+      room_code: row[6],       // G: Комната_Код (например "MC116")
+      category: row[7],        // H: Категория (например "furniture"), НЕ код комнаты!
       description: row[10],    // K: Описание
-      condition: row[11],      // L: Состояние
-      quantity: row[12] || 1,  // M: Количество
+      condition: row[11],      // L: Состояние (например "Отличное") — НЕ число!
+      quantity: row[12] || 1,  // M: Количество (число, например 1) — НЕ состояние!
       photo_count: row[13],    // N: Фото_кол-во
       photos: photos,          // O-S: Фото_1-5
       status: row[20]          // U: Статус

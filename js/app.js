@@ -102,6 +102,21 @@ class App {
     });
   }
 
+  /** Нормализация полей: исправляет перепутанные quantity/condition из API */
+  normalizeItemFields(item) {
+    const CONDITION_VALUES = ['Отличное', 'Хорошее', 'Удовлетворительное', 'Требует ремонта', 'Неисправно'];
+    let condition = item.condition;
+    let quantity = item.quantity;
+    if (typeof item.quantity === 'string' && CONDITION_VALUES.includes(item.quantity)) {
+      condition = item.quantity;
+      quantity = item.condition;
+    }
+    quantity = parseInt(quantity, 10) || 1;
+    let category = (item.category && String(item.category).trim()) || 'unknown';
+    if (category === item.room_code || !category) category = 'unknown';
+    return { condition, quantity, category };
+  }
+
   getItemsByRoom() {
     const byRoom = {};
 
@@ -124,8 +139,9 @@ class App {
 
     const counts = {};
     items.forEach(item => {
-      const cat = item.category || 'other';
-      counts[cat] = (counts[cat] || 0) + (item.quantity || 1);
+      const norm = this.normalizeItemFields(item);
+      const cat = norm.category === 'unknown' ? 'other' : norm.category;
+      counts[cat] = (counts[cat] || 0) + norm.quantity;
     });
 
     let maxCount = 0;
@@ -151,10 +167,10 @@ class App {
       let items = itemsByRoom[code] || [];
 
       items = items.filter(item => {
-        const itemCat = (item.category && String(item.category).trim()) || 'unknown';
+        const norm = this.normalizeItemFields(item);
         const filterCat = (this.filters.category && String(this.filters.category).trim()) || '';
-        if (filterCat && itemCat !== filterCat) return false;
-        if (this.filters.condition && (item.condition || '') !== this.filters.condition) return false;
+        if (filterCat && norm.category !== filterCat) return false;
+        if (this.filters.condition && (norm.condition || '') !== this.filters.condition) return false;
         if (this.filters.search) {
           const search = this.filters.search.toLowerCase();
           const desc = (item.description || '').toLowerCase();
@@ -321,31 +337,58 @@ class App {
   }
 
   createItemElement(item) {
-    // 🔍 ОТЛАДКА: проверка структуры данных из API
-    console.log('[DEBUG createItemElement] Item data:', {
-      id: item.id,
-      room_code: item.room_code,
-      category: item.category,
-      category_type: typeof item.category,
-      description: item.description,
-      condition: item.condition,
-      quantity: item.quantity,
-      photos: item.photos,
-      photo_count: item.photo_count
+    // === РАСШИРЕННАЯ ОТЛАДКА ===
+    console.group('[DEBUG createItemElement] Item: ' + item.id);
+    console.log('Full item object:', item);
+    console.table({
+      'ID': item.id,
+      'Room Code': item.room_code,
+      'Category': item.category,
+      'Description': item.description,
+      'Condition': item.condition,
+      'Quantity': item.quantity,
+      'Photo Count': item.photo_count
     });
+    console.log('Photos array:', item.photos);
+    console.groupEnd();
 
+    const CONDITION_VALUES = ['Отличное', 'Хорошее', 'Удовлетворительное', 'Требует ремонта', 'Неисправно'];
+
+    if (typeof item.quantity === 'string' && CONDITION_VALUES.includes(item.quantity)) {
+      console.error('[createItemElement] quantity содержит состояние!', item.quantity);
+      console.error('Проверьте Apps Script / Google Sheets — индексы колонок L и M могли быть перепутаны.');
+    }
+
+    // === ВРЕМЕННЫЙ FIX: swap перепутанных полей quantity ↔ condition ===
+    let actualCondition = item.condition;
+    let actualQuantity = item.quantity;
+    let actualCategory = item.category;
+
+    if (typeof item.quantity === 'string' && CONDITION_VALUES.includes(item.quantity)) {
+      console.warn('[createItemElement] Swapping quantity ↔ condition');
+      actualCondition = item.quantity;
+      actualQuantity = item.condition;
+    }
+
+    actualQuantity = parseInt(actualQuantity, 10) || 1;
+
+    if (actualCategory === item.room_code || !actualCategory || String(actualCategory).trim() === '') {
+      console.warn('[createItemElement] Category is empty or equals room_code, using "unknown"');
+      actualCategory = 'unknown';
+    } else {
+      actualCategory = String(actualCategory).trim();
+    }
+
+    // === СОЗДАНИЕ ЭЛЕМЕНТА ===
     const itemEl = document.createElement('div');
-    itemEl.className = 'item-card item';
+    itemEl.className = 'item item-card';
 
-    const categoryName = (item.category && String(item.category).trim()) || 'unknown';
-    itemEl.dataset.category = categoryName;
-    itemEl.dataset.condition = item.condition || '';
+    itemEl.dataset.category = actualCategory;
+    itemEl.dataset.condition = actualCondition || '';
     itemEl.dataset.roomCode = item.room_code || '';
 
-    const categoryColor = (CONFIG.CATEGORY_COLORS && CONFIG.CATEGORY_COLORS[categoryName]) || '#95A5A6';
-    const conditionColor = CONFIG.CONDITION_COLORS[item.condition] || '#888';
-    const icon = CONFIG.CATEGORY_ICONS[categoryName] || CONFIG.CATEGORY_ICONS.other || '❓';
-
+    // === КАТЕГОРИЯ (цветной бейдж) ===
+    const categoryColor = (CONFIG.CATEGORY_COLORS && CONFIG.CATEGORY_COLORS[actualCategory]) || '#999999';
     const CATEGORY_LABELS = {
       light: 'Light / Освещение',
       chandelier: 'Chandelier / Люстра',
@@ -357,81 +400,87 @@ class App {
       tech: 'Tech / Техника',
       spa: 'Spa / СПА',
       other: 'Other / Другое',
-      unknown: '? Unknown'
+      unknown: '❓ Unknown'
     };
-    const categoryLabel = CATEGORY_LABELS[categoryName] || categoryName;
-
-    const header = document.createElement('div');
-    header.className = 'item-header';
-    const iconSpan = document.createElement('span');
-    iconSpan.className = 'item-icon';
-    iconSpan.textContent = icon;
-    const categoryBadge = document.createElement('span');
+    const categoryBadge = document.createElement('div');
     categoryBadge.className = 'category-badge';
-    categoryBadge.style.backgroundColor = categoryColor;
-    categoryBadge.style.color = '#fff';
-    categoryBadge.style.padding = '4px 8px';
-    categoryBadge.style.borderRadius = '4px';
-    categoryBadge.style.fontSize = '12px';
-    categoryBadge.style.fontWeight = 'bold';
-    categoryBadge.style.display = 'inline-block';
-    categoryBadge.style.marginBottom = '8px';
-    categoryBadge.textContent = categoryLabel;
-    const conditionSpan = document.createElement('span');
-    conditionSpan.className = 'item-condition';
-    conditionSpan.style.backgroundColor = conditionColor;
-    conditionSpan.textContent = item.condition || '—';
-    header.appendChild(iconSpan);
-    header.appendChild(categoryBadge);
-    header.appendChild(conditionSpan);
+    categoryBadge.style.cssText = 'background-color:' + categoryColor + ';color:white;padding:4px 12px;border-radius:4px;font-size:12px;font-weight:bold;display:inline-block;margin-bottom:8px;';
+    categoryBadge.textContent = CATEGORY_LABELS[actualCategory] || actualCategory;
 
-    const body = document.createElement('div');
-    body.className = 'item-body';
+    // === КОД КОМНАТЫ ===
     const roomCodeEl = document.createElement('div');
     roomCodeEl.className = 'item-room-code';
-    roomCodeEl.style.fontSize = '14px';
-    roomCodeEl.style.fontWeight = 'bold';
-    roomCodeEl.style.color = '#666';
-    roomCodeEl.style.marginBottom = '4px';
+    roomCodeEl.style.cssText = 'font-size:13px;font-weight:600;color:#888;margin-bottom:4px;';
     roomCodeEl.textContent = item.room_code || '—';
-    body.appendChild(roomCodeEl);
-    const description = document.createElement('div');
-    description.className = 'item-description';
-    description.textContent = item.description || '—';
-    const quantity = document.createElement('div');
-    quantity.className = 'item-quantity';
-    quantity.textContent = 'Qty: ' + (item.quantity || 1);
-    body.appendChild(description);
-    body.appendChild(quantity);
 
+    // === ОПИСАНИЕ ===
+    const descriptionEl = document.createElement('div');
+    descriptionEl.className = 'item-description';
+    descriptionEl.style.cssText = 'font-size:14px;color:#333;margin-bottom:8px;line-height:1.4;';
+    descriptionEl.textContent = item.description || 'Без описания';
+
+    // === СОСТОЯНИЕ ===
+    const conditionEl = document.createElement('div');
+    conditionEl.className = 'item-condition-wrap';
+    conditionEl.style.cssText = 'font-size:13px;margin-bottom:6px;';
+    const conditionLabel = document.createElement('span');
+    conditionLabel.textContent = 'Состояние: ';
+    conditionLabel.style.color = '#666';
+    const conditionBadge = document.createElement('span');
+    conditionBadge.className = 'condition-badge';
+    const conditionColor = CONFIG.CONDITION_COLORS[actualCondition] || '#888';
+    conditionBadge.style.cssText = 'background-color:#e3f2fd;color:#1976d2;padding:2px 8px;border-radius:3px;font-size:12px;font-weight:500;';
+    if (conditionColor !== '#888') conditionBadge.style.backgroundColor = conditionColor;
+    conditionBadge.textContent = actualCondition || '—';
+    conditionEl.appendChild(conditionLabel);
+    conditionEl.appendChild(conditionBadge);
+
+    // === КОЛИЧЕСТВО ===
+    const quantityEl = document.createElement('div');
+    quantityEl.className = 'item-quantity';
+    quantityEl.style.cssText = 'font-size:13px;color:#666;margin-bottom:8px;';
+    quantityEl.innerHTML = '<strong>Qty:</strong> ' + actualQuantity;
+
+    // === ФОТО ===
     const itemPhotos = document.createElement('div');
     itemPhotos.className = 'item-photos';
+    itemPhotos.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;';
+
     const photos = (item.photos && Array.isArray(item.photos)) ? item.photos : [];
-    if (photos.length > 0) {
-      photos.forEach(photoUrl => {
-        const urlStr = typeof photoUrl === 'string'
-          ? photoUrl
-          : (photoUrl && typeof photoUrl === 'object' && photoUrl.url)
-            ? photoUrl.url
-            : (photoUrl != null ? String(photoUrl) : '');
-        if (!urlStr || !urlStr.startsWith('http')) return;
-        const img = document.createElement('img');
-        const thumbUrl = this.getDriveThumbnail(urlStr);
-        img.src = thumbUrl;
+    photos.forEach((photoUrl, index) => {
+      let urlStr = '';
+      if (typeof photoUrl === 'string') urlStr = photoUrl;
+      else if (photoUrl && typeof photoUrl === 'object' && photoUrl.url) urlStr = photoUrl.url;
+      else if (photoUrl != null) urlStr = String(photoUrl);
+      if (!urlStr || !urlStr.startsWith('http')) {
+        console.warn('[createItemElement] Invalid photo ' + index + ':', photoUrl);
+        return;
+      }
+      const img = document.createElement('img');
+      const thumbnailUrl = this.getDriveThumbnail(urlStr);
+      if (thumbnailUrl) {
+        img.src = thumbnailUrl;
         img.className = 'item-photo item-thumb';
-        img.alt = 'Item photo';
+        img.alt = 'Photo ' + (index + 1);
+        img.style.cssText = 'width:80px;height:80px;object-fit:cover;border-radius:4px;border:1px solid #ddd;cursor:pointer;transition:opacity 0.2s;';
         img.dataset.photoUrl = urlStr;
         img.onerror = () => {
-          console.error('[App] Failed to load photo:', urlStr);
+          console.error('[createItemElement] Failed to load photo ' + index + ':', urlStr);
           img.style.display = 'none';
         };
+        img.onclick = () => this.showPhoto(urlStr);
         itemPhotos.appendChild(img);
-      });
-    }
-    body.appendChild(itemPhotos);
+      }
+    });
 
-    itemEl.appendChild(header);
-    itemEl.appendChild(body);
+    // === СБОРКА ===
+    itemEl.appendChild(categoryBadge);
+    itemEl.appendChild(roomCodeEl);
+    itemEl.appendChild(descriptionEl);
+    itemEl.appendChild(conditionEl);
+    itemEl.appendChild(quantityEl);
+    itemEl.appendChild(itemPhotos);
+
     return itemEl;
   }
 
