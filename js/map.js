@@ -165,9 +165,7 @@ class FloorMap {
 
       circle.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.selectedCode = code;
-        this.renderPins();
-        this.onPinClick(code);
+        this.handlePinClick(code);
       });
 
       this.pinsLayer.appendChild(circle);
@@ -183,6 +181,16 @@ class FloorMap {
 
   hideTooltip() {
     this.tooltip.classList.add('hidden');
+  }
+
+  handlePinClick(roomCode) {
+    console.log('[Map] Pin clicked:', roomCode, '| previous selected:', this.selectedCode);
+    this.selectedCode = roomCode;
+    // Open sidebar first, then re-render pins so selected state is visible
+    if (this.onRoomSelect) {
+      this.onRoomSelect(roomCode);
+    }
+    this.renderPins();
   }
 
   onPinClick(code) {

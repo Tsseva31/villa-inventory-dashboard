@@ -240,7 +240,7 @@ class App {
     });
 
     document.getElementById('items-list').addEventListener('click', (e) => {
-      const thumb = e.target.closest('.item-thumb');
+      const thumb = e.target.closest('.item-thumb') || e.target.closest('.item-photo');
       if (thumb && thumb.dataset.photoUrl) {
         this.showPhoto(thumb.dataset.photoUrl);
       }
@@ -248,11 +248,16 @@ class App {
   }
 
   showRoomDetails(code) {
+    console.log('[App] showRoomDetails called with:', code);
     const sidebar = document.getElementById('sidebar');
+    console.log('[App] Sidebar element:', sidebar, '| currentRoomsData exists:', !!this.currentRoomsData);
     const roomData = this.currentRoomsData && this.currentRoomsData[code] ? this.currentRoomsData[code] : { items: [] };
     const roomCoords = this.roomsCoords[code] || { name: code };
     const roomItems = roomData.items || [];
-    console.log('Room items:', roomItems);
+    console.log('[App] Room items:', roomItems.length, roomItems);
+    roomItems.forEach(function (item) {
+      console.log('[App] Item photos:', item.id, item.photos, 'photo_count:', item.photo_count);
+    });
 
     document.getElementById('room-title').textContent = code + ' — ' + roomCoords.name;
     document.getElementById('items-count').textContent = roomItems.length + ' items';
@@ -273,41 +278,67 @@ class App {
   }
 
   createItemElement(item) {
-    const div = document.createElement('div');
-    div.className = 'item-card';
+    console.log('[App] Creating item element for:', item.id, '| photos:', item.photos);
+    const itemEl = document.createElement('div');
+    itemEl.className = 'item-card';
 
-    const icon = CONFIG.CATEGORY_ICONS[item.category] || '❓';
     const categoryColor = (CONFIG.CATEGORY_COLORS && CONFIG.CATEGORY_COLORS[item.category]) || '#95A5A6';
     const conditionColor = CONFIG.CONDITION_COLORS[item.condition] || '#888';
-    const conditionText = item.condition || '—';
+    const icon = CONFIG.CATEGORY_ICONS[item.category] || '❓';
 
-    let photoHtml = '';
+    const header = document.createElement('div');
+    header.className = 'item-header';
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'item-icon';
+    iconSpan.textContent = icon;
+    const categoryBadge = document.createElement('span');
+    categoryBadge.className = 'category-badge';
+    categoryBadge.style.backgroundColor = categoryColor;
+    categoryBadge.textContent = item.category || '';
+    const conditionSpan = document.createElement('span');
+    conditionSpan.className = 'item-condition';
+    conditionSpan.style.backgroundColor = conditionColor;
+    conditionSpan.textContent = item.condition || '—';
+    header.appendChild(iconSpan);
+    header.appendChild(categoryBadge);
+    header.appendChild(conditionSpan);
+
+    const body = document.createElement('div');
+    body.className = 'item-body';
+    const description = document.createElement('div');
+    description.className = 'item-description';
+    description.textContent = item.description || '—';
+    const quantity = document.createElement('div');
+    quantity.className = 'item-quantity';
+    quantity.textContent = 'Qty: ' + (item.quantity || 1);
+    body.appendChild(description);
+    body.appendChild(quantity);
+
+    const itemPhotos = document.createElement('div');
+    itemPhotos.className = 'item-photos';
     const photos = (item.photos && Array.isArray(item.photos)) ? item.photos : [];
-    const self = this;
+    console.log('[App] Item', item.id, 'photos array length:', photos.length, photos);
     if (photos.length > 0) {
-      photoHtml = '<div class="item-photos">';
-      photos.forEach(function (rawUrl) {
-        if (!rawUrl) return;
-        const thumbUrl = self.getDriveThumbnail(rawUrl);
-        const safeUrl = String(rawUrl).replace(/"/g, '&quot;');
-        photoHtml += '<img src="' + thumbUrl + '" class="item-thumb" data-photo-url="' + safeUrl + '" alt="Photo" onerror="this.style.display=\'none\'">';
-      });
-      photoHtml += '</div>';
+      photos.forEach(function (photoUrl) {
+        if (!photoUrl) return;
+        const img = document.createElement('img');
+        const thumbUrl = this.getDriveThumbnail(photoUrl);
+        img.src = thumbUrl;
+        img.className = 'item-photo item-thumb';
+        img.alt = 'Item photo';
+        img.dataset.photoUrl = photoUrl;
+        img.onerror = function () {
+          console.error('[App] Failed to load photo:', photoUrl);
+          img.style.display = 'none';
+        };
+        itemPhotos.appendChild(img);
+      }.bind(this));
     }
+    body.appendChild(itemPhotos);
 
-    div.innerHTML =
-      '<div class="item-header">' +
-        '<span class="item-icon">' + icon + '</span>' +
-        '<span class="category-badge" style="background:' + categoryColor + '">' + (item.category || '') + '</span>' +
-        '<span class="item-condition" style="background:' + conditionColor + '">' + conditionText + '</span>' +
-      '</div>' +
-      '<div class="item-body">' +
-        '<div class="item-description">' + (item.description || '—') + '</div>' +
-        '<div class="item-quantity">Qty: ' + (item.quantity || 1) + '</div>' +
-        photoHtml +
-      '</div>';
-
-    return div;
+    itemEl.appendChild(header);
+    itemEl.appendChild(body);
+    return itemEl;
   }
 
   getDriveThumbnail(url) {
