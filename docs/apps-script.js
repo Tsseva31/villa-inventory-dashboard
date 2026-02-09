@@ -49,7 +49,7 @@ function getItems() {
     if (!row[0]) continue;
 
     const photos = [];
-    for (let j = 13; j <= 17; j++) {
+    for (let j = 14; j <= 18; j++) {
       if (row[j]) photos.push(row[j]);
     }
 
@@ -60,13 +60,14 @@ function getItems() {
       building_id: row[3],
       zone_id: row[4],
       room_id: row[5],
-      category: row[6],
-      description: row[9],
-      condition: row[10],
-      quantity: row[11] || 1,
-      photo_count: row[12],
+      room_code: row[6],
+      category: row[7],
+      description: row[10],
+      condition: row[11],
+      quantity: row[12] || 1,
+      photo_count: row[13],
       photos: photos,
-      status: row[19]
+      status: row[20]
     });
   }
 
