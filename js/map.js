@@ -9,6 +9,7 @@ class FloorMap {
 
     this.rooms = {};
     this.roomsData = {};
+    this.selectedCode = null;
     this.scale = 1;
 
     this.init();
@@ -118,8 +119,14 @@ class FloorMap {
 
     Object.entries(this.rooms).forEach(([code, coords]) => {
       const data = this.roomsData[code] || { items: [], dominantCategory: 'empty' };
-      const isEmpty = data.dominantCategory === 'empty';
-      const color = isEmpty ? '#E0E0E0' : (CONFIG.CATEGORY_COLORS[data.dominantCategory] || CONFIG.CATEGORY_COLORS.other);
+      const hasItems = (data.items && data.items.length > 0);
+      const isSelected = (code === this.selectedCode);
+      const color = isSelected
+        ? (CONFIG.PIN_COLORS && CONFIG.PIN_COLORS.selected) || '#2196F3'
+        : hasItems
+          ? (CONFIG.PIN_COLORS && CONFIG.PIN_COLORS.hasItems) || '#4CAF50'
+          : (CONFIG.PIN_COLORS && CONFIG.PIN_COLORS.empty) || '#9E9E9E';
+      const isEmpty = !hasItems;
 
       // Координаты в пространстве viewBox (натуральный план 1545×763); масштаб через viewBox
       const x = (coords.x * xScale) + xOffset;
@@ -139,10 +146,8 @@ class FloorMap {
       circle.setAttribute('data-code', code);
       circle.setAttribute('data-base-r', baseRadius);
       circle.classList.add('pin');
-
-      if (isEmpty) {
-        circle.classList.add('empty');
-      }
+      if (isSelected) circle.classList.add('selected');
+      if (isEmpty) circle.classList.add('empty');
 
       // Добавить фильтр для тени (лучшая видимость на белом фоне)
       circle.style.filter = 'drop-shadow(1px 1px 2px rgba(0,0,0,0.3))';
@@ -160,6 +165,8 @@ class FloorMap {
 
       circle.addEventListener('click', (e) => {
         e.stopPropagation();
+        this.selectedCode = code;
+        this.renderPins();
         this.onPinClick(code);
       });
 

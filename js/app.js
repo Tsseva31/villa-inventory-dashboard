@@ -198,10 +198,11 @@ class App {
     });
 
     const conditionSelect = document.getElementById('filter-condition');
-    Object.keys(CONFIG.CONDITION_COLORS).forEach((label) => {
+    conditionSelect.innerHTML = '';
+    (CONFIG.CONDITIONS || Object.keys(CONFIG.CONDITION_COLORS).map(v => ({ value: v, label: v }))).forEach(function (opt) {
       const option = document.createElement('option');
-      option.value = label;
-      option.textContent = label;
+      option.value = opt.value;
+      option.textContent = opt.label;
       conditionSelect.appendChild(option);
     });
 
@@ -250,17 +251,19 @@ class App {
     const sidebar = document.getElementById('sidebar');
     const roomData = this.currentRoomsData && this.currentRoomsData[code] ? this.currentRoomsData[code] : { items: [] };
     const roomCoords = this.roomsCoords[code] || { name: code };
+    const roomItems = roomData.items || [];
+    console.log('Room items:', roomItems);
 
     document.getElementById('room-title').textContent = code + ' — ' + roomCoords.name;
-    document.getElementById('items-count').textContent = roomData.items.length + ' items';
+    document.getElementById('items-count').textContent = roomItems.length + ' items';
 
     const list = document.getElementById('items-list');
     list.innerHTML = '';
 
-    if (roomData.items.length === 0) {
+    if (roomItems.length === 0) {
       list.innerHTML = '<div class="no-items">No items</div>';
     } else {
-      roomData.items.forEach(item => {
+      roomItems.forEach(item => {
         const itemEl = this.createItemElement(item);
         list.appendChild(itemEl);
       });
@@ -274,23 +277,28 @@ class App {
     div.className = 'item-card';
 
     const icon = CONFIG.CATEGORY_ICONS[item.category] || '❓';
+    const categoryColor = (CONFIG.CATEGORY_COLORS && CONFIG.CATEGORY_COLORS[item.category]) || '#95A5A6';
     const conditionColor = CONFIG.CONDITION_COLORS[item.condition] || '#888';
     const conditionText = item.condition || '—';
 
     let photoHtml = '';
-    const rawPhotoUrl = (item.photos && item.photos.length > 0 && item.photos[0]) ? item.photos[0] : null;
-    if (rawPhotoUrl) {
-      const thumbUrl = this.getDriveThumbnail(rawPhotoUrl);
-      console.log('[Photo debug] item.id:', item.id, '| raw URL from data:', rawPhotoUrl, '| transformed URL:', thumbUrl);
-      photoHtml = '<img src="' + thumbUrl + '" class="item-thumb" data-photo-url="' + rawPhotoUrl.replace(/"/g, '&quot;') + '" alt="Photo" onerror="this.style.display=\'none\'">';
-    } else {
-      console.log('[Photo debug] item.id:', item.id, '| no photo (photos empty or missing)');
+    const photos = (item.photos && Array.isArray(item.photos)) ? item.photos : [];
+    const self = this;
+    if (photos.length > 0) {
+      photoHtml = '<div class="item-photos">';
+      photos.forEach(function (rawUrl) {
+        if (!rawUrl) return;
+        const thumbUrl = self.getDriveThumbnail(rawUrl);
+        const safeUrl = String(rawUrl).replace(/"/g, '&quot;');
+        photoHtml += '<img src="' + thumbUrl + '" class="item-thumb" data-photo-url="' + safeUrl + '" alt="Photo" onerror="this.style.display=\'none\'">';
+      });
+      photoHtml += '</div>';
     }
 
     div.innerHTML =
       '<div class="item-header">' +
         '<span class="item-icon">' + icon + '</span>' +
-        '<span class="item-category">' + (item.category || '') + '</span>' +
+        '<span class="category-badge" style="background:' + categoryColor + '">' + (item.category || '') + '</span>' +
         '<span class="item-condition" style="background:' + conditionColor + '">' + conditionText + '</span>' +
       '</div>' +
       '<div class="item-body">' +

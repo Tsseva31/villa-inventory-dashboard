@@ -246,10 +246,13 @@ body {
   font-size: 1.1rem;
 }
 
-.item-category {
+.item-category,
+.category-badge {
   font-size: 0.8rem;
-  color: #aaa;
+  color: #fff;
   text-transform: capitalize;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
 }
 
 .item-condition {
@@ -269,6 +272,13 @@ body {
   font-size: 0.8rem;
   color: #888;
   margin-bottom: 0.5rem;
+}
+
+.item-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
 }
 
 .item-thumb {

@@ -12,6 +12,13 @@ const CONFIG = {
   PIN_SIZE: 22,        // было 20
   PIN_SIZE_HOVER: 30,  // было 28
 
+  // Pin colors: green if room has items, gray if empty, blue when selected
+  PIN_COLORS: {
+    hasItems: '#4CAF50',
+    empty: '#9E9E9E',
+    selected: '#2196F3'
+  },
+
   // Калибровка координат (временно, пока не пересчитаны coords в rooms.json)
   // Если пины смещены вниз — увеличить Y_OFFSET (отрицательное число сдвигает вверх)
   COORD_X_OFFSET: 0,
@@ -44,6 +51,16 @@ const CONFIG = {
     'Требует ремонта': '#E74C3C',
     'Неисправно': '#95A5A6'
   },
+
+  // Filter options: all conditions from bot (CONDITION_TO_SHEETS values)
+  CONDITIONS: [
+    { value: '', label: 'Все' },
+    { value: 'Отличное', label: 'Отличное' },
+    { value: 'Хорошее', label: 'Хорошее' },
+    { value: 'Удовлетворительное', label: 'Удовлетворительное' },
+    { value: 'Требует ремонта', label: 'Требует ремонта' },
+    { value: 'Неисправно', label: 'Неисправно' }
+  ],
 
   // Category icons
   CATEGORY_ICONS: {

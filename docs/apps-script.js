@@ -36,11 +36,10 @@ function doGet(e) {
 
 /**
  * Get items from "Предметы" sheet
- * Column structure (22 columns, 0-indexed):
- * 0=ID, 1=Дата, 2=TelegramID, 3=BuildingID, 4=ZoneID, 5=RoomID,
- * 6=Комната_Код, 7=Категория, 8=Подкатегория, 9=Название, 10=Описание,
- * 11=Состояние, 12=Количество, 13=Фото_кол-во, 14-18=Фото_1-5,
- * 19=Последнее_обновление, 20=Статус
+ * Column structure (0-indexed): A=0 ID, B=1 Дата, C=2 Telegram_ID, D=3 Building_ID,
+ * E=4 Zone_ID, F=5 Room_ID, G=6 Комната_Код, H=7 Категория, I=8 Подкатегория,
+ * J=9 Название, K=10 Описание, L=11 Состояние, M=12 Количество, N=13 Фото_кол-во,
+ * O-S=14-18 Фото_1-5, T=19 Последнее_обновление, U=20 Статус
  */
 function getItems() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -57,27 +56,27 @@ function getItems() {
     const row = data[i];
     if (!row[0]) continue;
 
-    // Photos: columns 14-18 (indices 14, 15, 16, 17, 18)
+    // Photos: columns O-S (indices 14-18)
     const photos = [];
     for (let j = 14; j <= 18; j++) {
       if (row[j]) photos.push(row[j]);
     }
 
     items.push({
-      id: row[0],
-      date: row[1],
-      telegram_id: row[2],
-      building_id: row[3],
-      zone_id: row[4],
-      room_id: row[5],
-      room_code: row[6],       // Комната_Код (MC131, MC135...)
-      category: row[7],        // Категория
-      description: row[10],    // Описание
-      condition: row[11],      // Состояние
-      quantity: row[12] || 1,  // Количество
-      photo_count: row[13],    // Фото_кол-во
-      photos: photos,          // Фото_1 - Фото_5
-      status: row[20]          // Статус
+      id: row[0],              // A: ID
+      date: row[1],            // B: Дата_создания
+      telegram_id: row[2],     // C: Telegram_ID
+      building_id: row[3],     // D: Building_ID
+      zone_id: row[4],         // E: Zone_ID
+      room_id: row[5],         // F: Room_ID
+      room_code: row[6],       // G: Комната_Код
+      category: row[7],        // H: Категория
+      description: row[10],    // K: Описание
+      condition: row[11],      // L: Состояние
+      quantity: row[12] || 1,  // M: Количество
+      photo_count: row[13],    // N: Фото_кол-во
+      photos: photos,          // O-S: Фото_1-5
+      status: row[20]          // U: Статус
     });
   }
 
