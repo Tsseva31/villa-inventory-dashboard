@@ -1,13 +1,14 @@
 /**
  * Google Apps Script for Villa Inventory Dashboard
- * Paste this into your Google Sheet: Extensions → Apps Script
  * Deploy as Web app: Deploy → New deployment → Web app
  * Execute as: Me, Who has access: Anyone
- * Copy the Web app URL into js/config.js → API_URL (or set window.VILLA_API_URL)
+ *
+ * UPDATED: 2026-02-09 - Added room_code column support
  */
 
 function doGet(e) {
-  const action = e.parameter.action || 'getItems';
+  const params = e && e.parameter ? e.parameter : {};
+  const action = params.action || 'getItems';
 
   let result;
   switch (action) {
@@ -33,6 +34,14 @@ function doGet(e) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
+/**
+ * Get items from "Предметы" sheet
+ * Column structure (22 columns, 0-indexed):
+ * 0=ID, 1=Дата, 2=TelegramID, 3=BuildingID, 4=ZoneID, 5=RoomID,
+ * 6=Комната_Код, 7=Категория, 8=Подкатегория, 9=Название, 10=Описание,
+ * 11=Состояние, 12=Количество, 13=Фото_кол-во, 14-18=Фото_1-5,
+ * 19=Последнее_обновление, 20=Статус
+ */
 function getItems() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('Предметы');
@@ -48,8 +57,9 @@ function getItems() {
     const row = data[i];
     if (!row[0]) continue;
 
+    // Photos: columns 14-18 (indices 14, 15, 16, 17, 18)
     const photos = [];
-    for (let j = 13; j <= 17; j++) {
+    for (let j = 14; j <= 18; j++) {
       if (row[j]) photos.push(row[j]);
     }
 
@@ -60,19 +70,25 @@ function getItems() {
       building_id: row[3],
       zone_id: row[4],
       room_id: row[5],
-      category: row[6],
-      description: row[9],
-      condition: row[10],
-      quantity: row[11] || 1,
-      photo_count: row[12],
-      photos: photos,
-      status: row[19]
+      room_code: row[6],       // Комната_Код (MC131, MC135...)
+      category: row[7],        // Категория
+      description: row[10],    // Описание
+      condition: row[11],      // Состояние
+      quantity: row[12] || 1,  // Количество
+      photo_count: row[13],    // Фото_кол-во
+      photos: photos,          // Фото_1 - Фото_5
+      status: row[20]          // Статус
     });
   }
 
   return { success: true, count: items.length, items: items };
 }
 
+/**
+ * Get rooms from "Комнаты" sheet
+ * Column structure: 0=ID, 1=Zone_ID, 2=Название, 3=Номер(code),
+ * 4=Этаж, 5=Тип, 6=Активно, 7=Площадь_м²
+ */
 function getRooms() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('Комнаты');
@@ -95,7 +111,7 @@ function getRooms() {
       id: row[0],
       zone_id: row[1],
       name: row[2],
-      code: row[3],
+      code: row[3],      // Номер (MC131, MC132...)
       floor: row[4],
       type: row[5],
       area: row[7]
@@ -103,4 +119,19 @@ function getRooms() {
   }
 
   return { success: true, count: rooms.length, rooms: rooms };
+}
+
+// === Test functions ===
+
+function testGetItems() {
+  const result = getItems();
+  Logger.log('Items count: ' + (result.items ? result.items.length : 0));
+  if (result.items && result.items.length > 0) {
+    Logger.log('First item: ' + JSON.stringify(result.items[0], null, 2));
+  }
+}
+
+function testGetRooms() {
+  const result = getRooms();
+  Logger.log('Rooms count: ' + (result.rooms ? result.rooms.length : 0));
 }
