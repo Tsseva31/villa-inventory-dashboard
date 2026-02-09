@@ -36,11 +36,13 @@ const CONFIG = {
     empty: '#FFFFFF'
   },
 
-  // Condition colors (for badges)
+  // Condition colors (for badges). Must match CONDITION_TO_SHEETS in bot models/schemas.py
   CONDITION_COLORS: {
     'Отличное': '#27AE60',
+    'Хорошее': '#2ECC71',
     'Удовлетворительное': '#F39C12',
-    'Требует ремонта': '#E74C3C'
+    'Требует ремонта': '#E74C3C',
+    'Неисправно': '#95A5A6'
   },
 
   // Category icons
