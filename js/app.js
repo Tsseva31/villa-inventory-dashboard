@@ -2,7 +2,7 @@
 
 /** Convert Google Drive view/share URL to direct uc?id= form for reliable embedding. */
 function convertDriveUrl(url) {
-  if (!url) return null;
+  if (!url || typeof url !== 'string') return null;
   const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
   if (match) return 'https://drive.google.com/uc?id=' + match[1];
   const matchId = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
@@ -262,6 +262,8 @@ class App {
     document.getElementById('room-title').textContent = code + ' — ' + roomCoords.name;
     document.getElementById('items-count').textContent = roomItems.length + ' items';
 
+    sidebar.classList.remove('hidden');
+
     const list = document.getElementById('items-list');
     list.innerHTML = '';
 
@@ -269,12 +271,14 @@ class App {
       list.innerHTML = '<div class="no-items">No items</div>';
     } else {
       roomItems.forEach(item => {
-        const itemEl = this.createItemElement(item);
-        list.appendChild(itemEl);
+        try {
+          const itemEl = this.createItemElement(item);
+          list.appendChild(itemEl);
+        } catch (err) {
+          console.error('[App] createItemElement failed:', item.id, err);
+        }
       });
     }
-
-    sidebar.classList.remove('hidden');
   }
 
   createItemElement(item) {
@@ -320,15 +324,20 @@ class App {
     console.log('[App] Item', item.id, 'photos array length:', photos.length, photos);
     if (photos.length > 0) {
       photos.forEach(function (photoUrl) {
-        if (!photoUrl) return;
+        const urlStr = typeof photoUrl === 'string'
+          ? photoUrl
+          : (photoUrl && typeof photoUrl === 'object' && photoUrl.url)
+            ? photoUrl.url
+            : (photoUrl != null ? String(photoUrl) : '');
+        if (!urlStr || !urlStr.startsWith('http')) return;
         const img = document.createElement('img');
-        const thumbUrl = this.getDriveThumbnail(photoUrl);
+        const thumbUrl = this.getDriveThumbnail(urlStr);
         img.src = thumbUrl;
         img.className = 'item-photo item-thumb';
         img.alt = 'Item photo';
-        img.dataset.photoUrl = photoUrl;
+        img.dataset.photoUrl = urlStr;
         img.onerror = function () {
-          console.error('[App] Failed to load photo:', photoUrl);
+          console.error('[App] Failed to load photo:', urlStr);
           img.style.display = 'none';
         };
         itemPhotos.appendChild(img);
@@ -342,8 +351,9 @@ class App {
   }
 
   getDriveThumbnail(url) {
-    if (!url) return '';
+    if (!url || typeof url !== 'string') return '';
     const normalized = convertDriveUrl(url);
+    if (!normalized) return '';
     const match = normalized.match(/[?&]id=([a-zA-Z0-9_-]+)/) || normalized.match(/\/d\/([a-zA-Z0-9_-]+)/);
     const fileId = match ? match[1] : null;
     if (fileId) return 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w400';
@@ -351,11 +361,12 @@ class App {
   }
 
   showPhoto(url) {
-    if (!url) {
+    if (!url || typeof url !== 'string') {
       console.warn('showPhoto: no URL provided');
       return;
     }
     const normalized = convertDriveUrl(url);
+    if (!normalized) return;
     const match = normalized.match(/[?&]id=([a-zA-Z0-9_-]+)/) || normalized.match(/\/d\/([a-zA-Z0-9_-]+)/);
     const fileId = match ? match[1] : null;
     const fullUrl = fileId ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1200' : normalized;
