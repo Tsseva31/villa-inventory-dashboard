@@ -83,19 +83,20 @@ class App {
     });
   }
 
-  /** Диагностика: для каждого item — связь с комнатой и координаты из rooms.json */
+  /** Диагностика: для каждого item — связь с комнатой и координаты из rooms.json. Uses same logic as getItemsByRoom(). */
   logPinDiagnostics() {
     console.log('[PIN] 3. Item → room → coords:');
     this.items.forEach((item) => {
-      const roomId = item.room_id;
-      const code = this.roomIdToCode[item.room_id];
-      const roomLabel = code != null ? ('"' + code + '"') : ('room_id=' + roomId);
+      const code = (item.room_code && this.roomsCoords[item.room_code])
+        ? item.room_code
+        : this.roomIdToCode[item.room_id];
+      const roomLabel = code != null ? ('"' + code + '"') : ('room_id=' + item.room_id);
       const coords = code ? this.roomsCoords[code] : null;
       const found = !!coords;
       if (found) {
         console.log('[PIN] Item "' + (item.id || item.description) + '" → room ' + roomLabel + ' → found: true → x:' + coords.x + ', y:' + coords.y);
       } else {
-        const reason = !code ? 'room_id not in roomIdToCode (API rooms)' : 'code not in rooms.json';
+        const reason = !code ? 'no room_code on map and room_id not in roomIdToCode' : 'code not in rooms.json';
         console.log('[PIN] Item "' + (item.id || item.description) + '" → room ' + roomLabel + ' → found: false → SKIP (' + reason + ')');
       }
     });
@@ -105,7 +106,10 @@ class App {
     const byRoom = {};
 
     this.items.forEach(item => {
-      const code = this.roomIdToCode[item.room_id];
+      // Prefer room_code from API (column G) when it exists on map; fallback to room_id → code
+      const code = (item.room_code && this.roomsCoords[item.room_code])
+        ? item.room_code
+        : this.roomIdToCode[item.room_id];
       if (!code) return;
 
       if (!byRoom[code]) byRoom[code] = [];
@@ -191,6 +195,14 @@ class App {
       option.value = key;
       option.textContent = icon + ' ' + key;
       categorySelect.appendChild(option);
+    });
+
+    const conditionSelect = document.getElementById('filter-condition');
+    Object.keys(CONFIG.CONDITION_COLORS).forEach((label) => {
+      const option = document.createElement('option');
+      option.value = label;
+      option.textContent = label;
+      conditionSelect.appendChild(option);
     });
 
     document.getElementById('filter-category').addEventListener('change', (e) => {
