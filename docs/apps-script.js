@@ -122,6 +122,30 @@ function getRooms() {
   return { success: true, count: rooms.length, rooms: rooms };
 }
 
+/**
+ * Миграция: переносит категорию из G в H, если H пустая, а G содержит не room_code.
+ * Выполнять вручную: Extensions → Apps Script → Run → migrateCategories
+ */
+function migrateCategories() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet()
+    .getSheetByName('Предметы');
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    if (!row[0]) continue;
+    // Если H (col 7) пустая, а G (col 6) содержит категорию (не room_code)
+    const colG = String(row[6] || '');
+    const colH = String(row[7] || '');
+    const isRoomCode = /^MC\d+$/.test(colG);
+    if (!colH && colG && !isRoomCode) {
+      sheet.getRange(i + 1, 8).setValue(colG); // H = col 8 (1-indexed)
+      sheet.getRange(i + 1, 7).setValue('');   // очистить G
+      Logger.log('Migrated row ' + (i + 1) + ': ' + colG);
+    }
+  }
+}
+
 // === Test functions ===
 
 function testGetItems() {

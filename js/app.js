@@ -309,7 +309,8 @@ class App {
     this.sidebar = sidebar;
     this.currentSidebarRoomCode = code;
     const roomCoords = this.roomsCoords[code] || { name: code };
-    // Use all items in room (from getItemsByRoom) so sidebar list can be filtered by filterItems()
+    // Show ALL items in the room when a room is clicked — do not apply global filters.
+    // Users expect to see the full room inventory. Filters only affect the map (which rooms/pins are visible).
     const byRoom = this.getItemsByRoom();
     const roomItems = byRoom[code] || [];
 
@@ -332,7 +333,8 @@ class App {
           console.error('[App] createItemElement failed:', item.id, err);
         }
       });
-      this.filterItems();
+      // Do NOT call filterItems() — sidebar shows full room inventory regardless of map filters.
+      document.getElementById('items-count').textContent = roomItems.length + ' items';
     }
   }
 
