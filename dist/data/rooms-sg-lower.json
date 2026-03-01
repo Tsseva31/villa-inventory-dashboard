@@ -1,0 +1,12 @@
+{
+  "SG01": {"name": "Archie Room", "x": 0, "y": 0},
+  "SG02": {"name": "Ensuite (Archie)", "x": 0, "y": 0},
+  "SG03": {"name": "WIR (Archie)", "x": 0, "y": 0},
+  "SG04": {"name": "Butler", "x": 0, "y": 0},
+  "SG05": {"name": "Anuta Room", "x": 0, "y": 0},
+  "SG06": {"name": "Ensuite (Anuta)", "x": 0, "y": 0},
+  "SG07": {"name": "WIR (Anuta)", "x": 0, "y": 0},
+  "SG08": {"name": "Pool Pantry", "x": 0, "y": 0},
+  "SG09": {"name": "Pool Change", "x": 0, "y": 0},
+  "SG10": {"name": "AG Bar", "x": 0, "y": 0}
+}

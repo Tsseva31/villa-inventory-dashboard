@@ -1,0 +1,15 @@
+{
+  "ENT01": {"name": "TV Game Zone", "x": 0, "y": 0},
+  "ENT02": {"name": "Equipment Rack", "x": 0, "y": 0},
+  "ENT03": {"name": "Lady WC", "x": 0, "y": 0},
+  "ENT04": {"name": "Gent WC", "x": 0, "y": 0},
+  "ENT05": {"name": "Game Zone", "x": 0, "y": 0},
+  "ENT06": {"name": "Bar Zone", "x": 0, "y": 0},
+  "ENT07": {"name": "Lounge", "x": 0, "y": 0},
+  "ENT08": {"name": "Bowling Alley", "x": 0, "y": 0},
+  "ENT09": {"name": "Foyer", "x": 0, "y": 0},
+  "ENT10": {"name": "Dressing", "x": 0, "y": 0},
+  "ENT11": {"name": "Bathroom", "x": 0, "y": 0},
+  "ENT12": {"name": "Toilet", "x": 0, "y": 0},
+  "ENT13": {"name": "Pantry", "x": 0, "y": 0}
+}

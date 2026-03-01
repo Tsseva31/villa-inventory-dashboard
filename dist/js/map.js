@@ -9,20 +9,66 @@ class FloorMap {
 
     this.rooms = {};
     this.roomsData = {};
+    this.selectedCode = null;
     this.scale = 1;
+
+    // Floor plan dimensions — set via setFloorPlanDimensions(); fall back to CONFIG
+    this.floorPlanWidth = null;
+    this.floorPlanHeight = null;
 
     this.init();
   }
 
   async init() {
-    const res = await fetch('data/rooms.json');
-    this.rooms = await res.json();
-
+    // rooms are now loaded and pushed by App via setRooms() — no fetch here
     window.addEventListener('resize', () => this.updateScale());
-    this.floorPlan.addEventListener('load', () => this.updateScale());
+
+    await this.waitForImage();
+
+    this.updateScale();
+
+    this.initResizeObserver();
 
     const debug = new URLSearchParams(location.search).get('debug') === '1';
     if (debug) this.setupDebugClick();
+  }
+
+  /** Called by App when switching buildings. Replaces room coords and redraws. */
+  setRooms(rooms) {
+    this.rooms = rooms || {};
+    this.selectedCode = null;
+    this.updateScale();
+  }
+
+  /** Called by App when switching buildings. Updates viewBox dimensions. */
+  setFloorPlanDimensions(width, height) {
+    this.floorPlanWidth = width || null;
+    this.floorPlanHeight = height || null;
+  }
+
+  initResizeObserver() {
+    const wrapper = this.container.querySelector('.map-wrapper');
+    if (!wrapper) return;
+
+    const observer = new ResizeObserver((entries) => {
+      const { width, height } = entries[0].contentRect;
+      if (width > 100 && height > 100) {
+        this.updateScale();
+      }
+    });
+    observer.observe(wrapper);
+    this.resizeObserver = observer;
+  }
+
+  waitForImage() {
+    return new Promise((resolve) => {
+      if (this.floorPlan.complete && this.floorPlan.naturalWidth > 0) {
+        resolve();
+      } else {
+        this.floorPlan.addEventListener('load', resolve, { once: true });
+        this.floorPlan.addEventListener('error', resolve, { once: true });
+      }
+    });
   }
 
   setupDebugClick() {
@@ -35,8 +81,8 @@ class FloorMap {
       const yNatural = Math.round(yDisplay / this.scale);
       console.log('Click coords (image):', xNatural, yNatural);
       const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      circle.setAttribute('cx', xDisplay);
-      circle.setAttribute('cy', yDisplay);
+      circle.setAttribute('cx', xNatural);
+      circle.setAttribute('cy', yNatural);
       circle.setAttribute('r', 5);
       circle.setAttribute('fill', 'red');
       this.pinsLayer.appendChild(circle);
@@ -44,24 +90,34 @@ class FloorMap {
   }
 
   updateScale() {
-    const rect = this.floorPlan.getBoundingClientRect();
-    const containerRect = this.container.getBoundingClientRect();
+    const planW = this.floorPlanWidth || CONFIG.FLOOR_PLAN_WIDTH;
+    const planH = this.floorPlanHeight || CONFIG.FLOOR_PLAN_HEIGHT;
 
-    // Вычисляем реальный масштаб изображения
-    this.scale = rect.width / CONFIG.FLOOR_PLAN_WIDTH;
+    const wrapper = this.container.querySelector('.map-wrapper');
+    const rect = wrapper ? wrapper.getBoundingClientRect() : this.floorPlan.getBoundingClientRect();
+    if (typeof console !== 'undefined' && console.log) {
+      console.log('[PIN] updateScale:', { clientWidth: wrapper && wrapper.clientWidth, clientHeight: wrapper && wrapper.clientHeight, rect: rect.width + 'x' + rect.height });
+    }
+    this.scale = rect.width / planW;
 
-    // SVG должен точно совпадать с изображением
+    // Keep .map-wrapper aspect-ratio in sync with current floor plan dimensions
+    if (wrapper) {
+      wrapper.style.maxWidth = planW + 'px';
+      wrapper.style.aspectRatio = planW + ' / ' + planH;
+    }
+
+    // SVG always in natural floor-plan coords; scaling via viewBox
+    this.pinsLayer.setAttribute('viewBox', '0 0 ' + planW + ' ' + planH);
+    this.pinsLayer.setAttribute('preserveAspectRatio', 'xMinYMin meet');
+    this.pinsLayer.setAttribute('width', '100%');
+    this.pinsLayer.setAttribute('height', '100%');
     this.pinsLayer.style.position = 'absolute';
     this.pinsLayer.style.top = '0';
     this.pinsLayer.style.left = '0';
-    this.pinsLayer.style.width = rect.width + 'px';
-    this.pinsLayer.style.height = rect.height + 'px';
-    this.pinsLayer.setAttribute('width', rect.width);
-    this.pinsLayer.setAttribute('height', rect.height);
-    this.pinsLayer.setAttribute('viewBox', '0 0 ' + rect.width + ' ' + rect.height);
+    this.pinsLayer.style.width = '100%';
+    this.pinsLayer.style.height = '100%';
 
-    // DEBUG: проверка масштаба и размеров
-    console.log('[PIN] Scale: image size', rect.width, 'x', rect.height, '| natural plan', CONFIG.FLOOR_PLAN_WIDTH, 'x', CONFIG.FLOOR_PLAN_HEIGHT, '| scale =', this.scale, '(= rect.width / FLOOR_PLAN_WIDTH)');
+    console.log('[PIN] SVG viewBox: 0 0', planW, planH, '| container rect:', rect.width, 'x', rect.height);
 
     this.renderPins();
   }
@@ -80,19 +136,25 @@ class FloorMap {
     const yScale = CONFIG.COORD_Y_SCALE || 1.0;
 
     const roomCodes = Object.keys(this.rooms);
-    console.log('[PIN] 4. map.js renderPins: rooms (pins) count =', roomCodes.length, '| formula: x = (coords.x * xScale * scale) + xOffset, y = (coords.y * yScale * scale) + yOffset');
-    console.log('[PIN] Calibration: xOffset=' + xOffset, 'yOffset=' + yOffset, 'xScale=' + xScale, 'yScale=' + yScale, 'scale=' + this.scale);
+    console.log('[PIN] 4. map.js renderPins: rooms (pins) count =', roomCodes.length, '| coords in viewBox space (0 0 1545 763)');
+    console.log('[PIN] Calibration: xOffset=' + xOffset, 'yOffset=' + yOffset, 'xScale=' + xScale, 'yScale=' + yScale);
 
     Object.entries(this.rooms).forEach(([code, coords]) => {
       const data = this.roomsData[code] || { items: [], dominantCategory: 'empty' };
-      const isEmpty = data.dominantCategory === 'empty';
-      const color = isEmpty ? '#E0E0E0' : (CONFIG.CATEGORY_COLORS[data.dominantCategory] || CONFIG.CATEGORY_COLORS.other);
+      const hasItems = (data.items && data.items.length > 0);
+      const isSelected = (code === this.selectedCode);
+      const color = isSelected
+        ? (CONFIG.PIN_COLORS && CONFIG.PIN_COLORS.selected) || '#2196F3'
+        : hasItems
+          ? (CONFIG.PIN_COLORS && CONFIG.PIN_COLORS.hasItems) || '#4CAF50'
+          : (CONFIG.PIN_COLORS && CONFIG.PIN_COLORS.empty) || '#9E9E9E';
+      const isEmpty = !hasItems;
 
-      // Применить калибровку: позиция из rooms.json в натуральных px → экранные px
-      const x = (coords.x * xScale * this.scale) + xOffset;
-      const y = (coords.y * yScale * this.scale) + yOffset;
+      // Координаты в пространстве viewBox (натуральный план 1545×763); масштаб через viewBox
+      const x = (coords.x * xScale) + xOffset;
+      const y = (coords.y * yScale) + yOffset;
 
-      console.log('[PIN] Room "' + code + '" → from rooms.json x:' + coords.x + ', y:' + coords.y + ' → screen x:' + Math.round(x) + ', y:' + Math.round(y) + ' | items:' + (data.items ? data.items.length : 0));
+      console.log('[PIN] Room "' + code + '" → rooms.json x:' + coords.x + ', y:' + coords.y + ' → viewBox x:' + Math.round(x) + ', y:' + Math.round(y) + ' | items:' + (data.items ? data.items.length : 0));
 
       const baseRadius = CONFIG.PIN_SIZE / 2;
 
@@ -106,10 +168,8 @@ class FloorMap {
       circle.setAttribute('data-code', code);
       circle.setAttribute('data-base-r', baseRadius);
       circle.classList.add('pin');
-
-      if (isEmpty) {
-        circle.classList.add('empty');
-      }
+      if (isSelected) circle.classList.add('selected');
+      if (isEmpty) circle.classList.add('empty');
 
       // Добавить фильтр для тени (лучшая видимость на белом фоне)
       circle.style.filter = 'drop-shadow(1px 1px 2px rgba(0,0,0,0.3))';
@@ -127,7 +187,7 @@ class FloorMap {
 
       circle.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.onPinClick(code);
+        this.handlePinClick(code);
       });
 
       this.pinsLayer.appendChild(circle);
@@ -143,6 +203,16 @@ class FloorMap {
 
   hideTooltip() {
     this.tooltip.classList.add('hidden');
+  }
+
+  handlePinClick(roomCode) {
+    console.log('[Map] Pin clicked:', roomCode, '| previous selected:', this.selectedCode);
+    this.selectedCode = roomCode;
+    // Open sidebar first, then re-render pins so selected state is visible
+    if (this.onRoomSelect) {
+      this.onRoomSelect(roomCode);
+    }
+    this.renderPins();
   }
 
   onPinClick(code) {

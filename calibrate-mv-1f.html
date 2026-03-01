@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Floor plan calibration</title>
+  <title>Calibrate — MV Spa & Gym</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; display: flex; gap: 24px; align-items: flex-start; }
@@ -24,10 +24,10 @@
 </head>
 <body>
   <div>
-    <h1>Floor plan calibration</h1>
+    <h1>Floor plan calibration — MV Spa &amp; Gym</h1>
     <p style="margin:0 0 12px;color:#666;">Click the center of each room in order. Remove wrong clicks from the list, then Export JSON.</p>
     <div class="plan-wrap">
-      <img id="plan" src="assets/floor-plan-mc-1f.png" alt="Floor plan" width="1545" height="763">
+      <img id="plan" src="assets/floor-plan-mv-1f.png" alt="Floor plan" width="1545" height="763">
       <canvas id="markers" width="1545" height="763"></canvas>
       <div class="click-layer" id="click-layer"></div>
     </div>
@@ -46,7 +46,7 @@
     let points = [];
 
     async function loadRoomOrder() {
-      const res = await fetch('data/rooms-mc-1f.json');
+      const res = await fetch('data/rooms-mv-1f.json');
       const data = await res.json();
       roomOrder = Object.keys(data).map(code => ({ code, name: data[code].name || code }));
       updateNextHint();
@@ -121,14 +121,12 @@
       const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'rooms-mc-1f.json';
+      a.download = 'rooms-mv-1f.json';
       a.click();
       URL.revokeObjectURL(a.href);
     });
 
-    loadRoomOrder().then(() => {
-      updateNextHint();
-    });
+    loadRoomOrder().then(() => { updateNextHint(); });
   </script>
 </body>
 </html>

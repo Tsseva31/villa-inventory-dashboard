@@ -18,6 +18,8 @@ class App {
     this.roomsCoords = {};
     this.roomIdToCode = {};
 
+    this.activeBuilding = (CONFIG.DEFAULT_BUILDING) || 'mc-1f';
+
     this.filters = {
       category: '',
       condition: '',
@@ -31,20 +33,129 @@ class App {
     this.map = new FloorMap('map-container');
     this.map.onRoomSelect = (code) => this.showRoomDetails(code);
 
-    const coordsRes = await fetch('data/rooms.json');
-    this.roomsCoords = await coordsRes.json();
-    const roomsJsonKeys = Object.keys(this.roomsCoords);
-    console.log('[PIN] 1. rooms.json: rooms count =', roomsJsonKeys.length);
-    console.log('[PIN] rooms.json first 3 keys:', roomsJsonKeys.slice(0, 3));
+    const building = this._getBuilding(this.activeBuilding);
+
+    // Set floor plan image and dimensions before loading rooms
+    const floorPlanEl = document.getElementById('floor-plan');
+    if (floorPlanEl && building.floorPlan) floorPlanEl.src = building.floorPlan;
+
+    this.map.setFloorPlanDimensions(building.width, building.height);
+
+    this.roomsCoords = await this._fetchRooms(building.roomsFile);
+
+    this.map.setRooms(this.roomsCoords);
+
     await this.loadData();
     await this.waitForFloorPlanImage();
 
     this.setupFilters();
     this.setupSidebar();
     this.setupModal();
+    this.setupBuildingTabs();
     this.renderLegend();
 
     this.applyFilters();
+  }
+
+  /** Returns building config for a given key; falls back to mc-1f. */
+  _getBuilding(key) {
+    const buildings = (CONFIG.BUILDINGS) || {};
+    return buildings[key] || buildings['mc-1f'] || {
+      label: key,
+      floorPlan: CONFIG.FLOOR_PLAN || 'assets/floor-plan-mc.png',
+      width: CONFIG.FLOOR_PLAN_WIDTH || 1545,
+      height: CONFIG.FLOOR_PLAN_HEIGHT || 763,
+      roomsFile: 'data/rooms-mc-1f.json',
+      buildingId: 1
+    };
+  }
+
+  /** Fetch rooms JSON; returns {} on error (e.g. empty stubs for new buildings). */
+  async _fetchRooms(roomsFile) {
+    try {
+      const res = await fetch(roomsFile);
+      if (!res.ok) return {};
+      return await res.json();
+    } catch (e) {
+      console.warn('[App] Could not load', roomsFile, e);
+      return {};
+    }
+  }
+
+  /**
+   * Returns true when the item belongs to the currently active building/floor.
+   * For MC 1F and MC 2F (both building_id=1) we also check that the room_code
+   * is present in the active roomsCoords — this splits the two floors cleanly.
+   */
+  itemBelongsToBuilding(item) {
+    const building = this._getBuilding(this.activeBuilding);
+    const itemBuildingId = item.building_id !== undefined && item.building_id !== null && item.building_id !== ''
+      ? parseInt(item.building_id, 10)
+      : null;
+
+    // If API did not return building_id at all — show everything (mock data / legacy)
+    if (itemBuildingId === null || isNaN(itemBuildingId)) return true;
+
+    if (itemBuildingId !== building.buildingId) return false;
+
+    // For buildings that have multiple floor tabs (same buildingId), discriminate by room_code.
+    // This handles MC, MV (1f/2f) and SG (lower/upper) — any buildingId shared by 2+ tabs.
+    const allBuildings = Object.values((CONFIG.BUILDINGS) || {});
+    const floorsForId = allBuildings.filter(b => b.buildingId === building.buildingId);
+    if (floorsForId.length > 1) {
+      const code = item.room_code || this.roomIdToCode[item.room_id];
+      if (!code) return false;
+      return Object.prototype.hasOwnProperty.call(this.roomsCoords, code);
+    }
+
+    return true;
+  }
+
+  /** Switch active building tab: load new rooms, update floor plan, rerender. */
+  async switchBuilding(buildingKey) {
+    if (buildingKey === this.activeBuilding) return;
+
+    this.activeBuilding = buildingKey;
+    const building = this._getBuilding(buildingKey);
+
+    // Update floor plan image
+    const floorPlanEl = document.getElementById('floor-plan');
+    if (floorPlanEl) floorPlanEl.src = building.floorPlan;
+
+    // Load room coords for this building
+    this.roomsCoords = await this._fetchRooms(building.roomsFile);
+
+    // Update map
+    this.map.setFloorPlanDimensions(building.width, building.height);
+    this.map.setRooms(this.roomsCoords);
+
+    // Close sidebar
+    document.getElementById('sidebar').classList.add('hidden');
+
+    // Update tab highlight
+    document.querySelectorAll('#building-tabs .tab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.building === buildingKey);
+    });
+
+    // Rerender pins with filtered data
+    this.applyFilters();
+  }
+
+  /** Wire up click events for building tab buttons. */
+  setupBuildingTabs() {
+    const nav = document.getElementById('building-tabs');
+    if (!nav) return;
+    nav.addEventListener('click', (e) => {
+      const btn = e.target.closest('.tab');
+      if (!btn) return;
+      const key = btn.dataset.building;
+      if (key) this.switchBuilding(key);
+    });
+  
+    // Подсветить активный таб при загрузке
+    document.querySelectorAll('#building-tabs .tab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.building === this.activeBuilding);
+    });
   }
 
   async loadData() {
@@ -57,14 +168,6 @@ class App {
       this.rooms.forEach(room => {
         this.roomIdToCode[room.id] = room.code;
       });
-
-      console.log('[PIN] 2. API: items count =', this.items.length);
-      if (this.items.length > 0) {
-        console.log('[PIN] First item from API (structure):', JSON.stringify(this.items[0], null, 2));
-      }
-      console.log('[PIN] roomIdToCode (ID → code):', this.roomIdToCode);
-
-      this.logPinDiagnostics();
     } catch (e) {
       console.error('Data loading error:', e);
       this.showError('Failed to load data. Check API settings.');
@@ -80,25 +183,6 @@ class App {
     return new Promise((resolve) => {
       img.addEventListener('load', resolve, { once: true });
       img.addEventListener('error', resolve, { once: true });
-    });
-  }
-
-  /** Диагностика: для каждого item — связь с комнатой и координаты из rooms.json. Uses same logic as getItemsByRoom(). */
-  logPinDiagnostics() {
-    console.log('[PIN] 3. Item → room → coords:');
-    this.items.forEach((item) => {
-      const code = (item.room_code && this.roomsCoords[item.room_code])
-        ? item.room_code
-        : this.roomIdToCode[item.room_id];
-      const roomLabel = code != null ? ('"' + code + '"') : ('room_id=' + item.room_id);
-      const coords = code ? this.roomsCoords[code] : null;
-      const found = !!coords;
-      if (found) {
-        console.log('[PIN] Item "' + (item.id || item.description) + '" → room ' + roomLabel + ' → found: true → x:' + coords.x + ', y:' + coords.y);
-      } else {
-        const reason = !code ? 'no room_code on map and room_id not in roomIdToCode' : 'code not in rooms.json';
-        console.log('[PIN] Item "' + (item.id || item.description) + '" → room ' + roomLabel + ' → found: false → SKIP (' + reason + ')');
-      }
     });
   }
 
@@ -121,6 +205,9 @@ class App {
     const byRoom = {};
 
     this.items.forEach(item => {
+      // Skip items that don't belong to the currently active building/floor
+      if (!this.itemBelongsToBuilding(item)) return;
+
       // Prefer room_code from API (column G) when it exists on map; fallback to room_id → code
       const code = (item.room_code && this.roomsCoords[item.room_code])
         ? item.room_code
@@ -304,7 +391,6 @@ class App {
   }
 
   showRoomDetails(code) {
-    console.log('[App] showRoomDetails called with:', code);
     const sidebar = document.getElementById('sidebar');
     this.sidebar = sidebar;
     this.currentSidebarRoomCode = code;
@@ -339,47 +425,10 @@ class App {
   }
 
   createItemElement(item) {
-    // === РАСШИРЕННАЯ ОТЛАДКА ===
-    console.group('[DEBUG createItemElement] Item: ' + item.id);
-    console.log('Full item object:', item);
-    console.table({
-      'ID': item.id,
-      'Room Code': item.room_code,
-      'Category': item.category,
-      'Description': item.description,
-      'Condition': item.condition,
-      'Quantity': item.quantity,
-      'Photo Count': item.photo_count
-    });
-    console.log('Photos array:', item.photos);
-    console.groupEnd();
-
-    const CONDITION_VALUES = ['Отличное', 'Хорошее', 'Удовлетворительное', 'Требует ремонта', 'Неисправно'];
-
-    if (typeof item.quantity === 'string' && CONDITION_VALUES.includes(item.quantity)) {
-      console.error('[createItemElement] quantity содержит состояние!', item.quantity);
-      console.error('Проверьте Apps Script / Google Sheets — индексы колонок L и M могли быть перепутаны.');
-    }
-
-    // === ВРЕМЕННЫЙ FIX: swap перепутанных полей quantity ↔ condition ===
-    let actualCondition = item.condition;
-    let actualQuantity = item.quantity;
-    let actualCategory = item.category;
-
-    if (typeof item.quantity === 'string' && CONDITION_VALUES.includes(item.quantity)) {
-      console.warn('[createItemElement] Swapping quantity ↔ condition');
-      actualCondition = item.quantity;
-      actualQuantity = item.condition;
-    }
-
-    actualQuantity = parseInt(actualQuantity, 10) || 1;
-
-    if (actualCategory === item.room_code || !actualCategory || String(actualCategory).trim() === '') {
-      console.warn('[createItemElement] Category is empty or equals room_code, using "unknown"');
-      actualCategory = 'unknown';
-    } else {
-      actualCategory = String(actualCategory).trim();
-    }
+    const norm = this.normalizeItemFields(item);
+    const actualCondition = norm.condition;
+    const actualQuantity = parseInt(norm.quantity, 10) || 1;
+    const actualCategory = norm.category;
 
     // === СОЗДАНИЕ ЭЛЕМЕНТА ===
     const itemEl = document.createElement('div');
@@ -454,10 +503,7 @@ class App {
       if (typeof photoUrl === 'string') urlStr = photoUrl;
       else if (photoUrl && typeof photoUrl === 'object' && photoUrl.url) urlStr = photoUrl.url;
       else if (photoUrl != null) urlStr = String(photoUrl);
-      if (!urlStr || !urlStr.startsWith('http')) {
-        console.warn('[createItemElement] Invalid photo ' + index + ':', photoUrl);
-        return;
-      }
+      if (!urlStr || !urlStr.startsWith('http')) return;
       const img = document.createElement('img');
       const thumbnailUrl = this.getDriveThumbnail(urlStr);
       if (thumbnailUrl) {
@@ -497,17 +543,12 @@ class App {
   }
 
   showPhoto(url) {
-    if (!url || typeof url !== 'string') {
-      console.warn('showPhoto: no URL provided');
-      return;
-    }
+    if (!url || typeof url !== 'string') return;
     const normalized = convertDriveUrl(url);
     if (!normalized) return;
     const match = normalized.match(/[?&]id=([a-zA-Z0-9_-]+)/) || normalized.match(/\/d\/([a-zA-Z0-9_-]+)/);
     const fileId = match ? match[1] : null;
     const fullUrl = fileId ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1200' : normalized;
-
-    console.log('Opening photo:', fullUrl);
 
     const img = document.getElementById('modal-photo');
     img.src = fullUrl;

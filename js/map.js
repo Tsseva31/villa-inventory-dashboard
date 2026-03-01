@@ -12,25 +12,38 @@ class FloorMap {
     this.selectedCode = null;
     this.scale = 1;
 
+    // Floor plan dimensions — set via setFloorPlanDimensions(); fall back to CONFIG
+    this.floorPlanWidth = null;
+    this.floorPlanHeight = null;
+
     this.init();
   }
 
   async init() {
-    const res = await fetch('data/rooms.json');
-    this.rooms = await res.json();
-
+    // rooms are now loaded and pushed by App via setRooms() — no fetch here
     window.addEventListener('resize', () => this.updateScale());
 
-    // Ждём загрузки изображения (в т.ч. из кэша — load не срабатывает)
     await this.waitForImage();
 
     this.updateScale();
 
-    // ResizeObserver: при первом валидном размере контейнера (и при изменении) — пересчёт SVG
     this.initResizeObserver();
 
     const debug = new URLSearchParams(location.search).get('debug') === '1';
     if (debug) this.setupDebugClick();
+  }
+
+  /** Called by App when switching buildings. Replaces room coords and redraws. */
+  setRooms(rooms) {
+    this.rooms = rooms || {};
+    this.selectedCode = null;
+    this.updateScale();
+  }
+
+  /** Called by App when switching buildings. Updates viewBox dimensions. */
+  setFloorPlanDimensions(width, height) {
+    this.floorPlanWidth = width || null;
+    this.floorPlanHeight = height || null;
   }
 
   initResizeObserver() {
@@ -77,15 +90,24 @@ class FloorMap {
   }
 
   updateScale() {
+    const planW = this.floorPlanWidth || CONFIG.FLOOR_PLAN_WIDTH;
+    const planH = this.floorPlanHeight || CONFIG.FLOOR_PLAN_HEIGHT;
+
     const wrapper = this.container.querySelector('.map-wrapper');
     const rect = wrapper ? wrapper.getBoundingClientRect() : this.floorPlan.getBoundingClientRect();
     if (typeof console !== 'undefined' && console.log) {
       console.log('[PIN] updateScale:', { clientWidth: wrapper && wrapper.clientWidth, clientHeight: wrapper && wrapper.clientHeight, rect: rect.width + 'x' + rect.height });
     }
-    this.scale = rect.width / CONFIG.FLOOR_PLAN_WIDTH;
+    this.scale = rect.width / planW;
 
-    // SVG всегда в натуральных координатах плана (1545×763); масштабирование через viewBox
-    this.pinsLayer.setAttribute('viewBox', '0 0 ' + CONFIG.FLOOR_PLAN_WIDTH + ' ' + CONFIG.FLOOR_PLAN_HEIGHT);
+    // Keep .map-wrapper aspect-ratio in sync with current floor plan dimensions
+    if (wrapper) {
+      wrapper.style.maxWidth = planW + 'px';
+      wrapper.style.aspectRatio = planW + ' / ' + planH;
+    }
+
+    // SVG always in natural floor-plan coords; scaling via viewBox
+    this.pinsLayer.setAttribute('viewBox', '0 0 ' + planW + ' ' + planH);
     this.pinsLayer.setAttribute('preserveAspectRatio', 'xMinYMin meet');
     this.pinsLayer.setAttribute('width', '100%');
     this.pinsLayer.setAttribute('height', '100%');
@@ -95,7 +117,7 @@ class FloorMap {
     this.pinsLayer.style.width = '100%';
     this.pinsLayer.style.height = '100%';
 
-    console.log('[PIN] SVG viewBox: 0 0', CONFIG.FLOOR_PLAN_WIDTH, CONFIG.FLOOR_PLAN_HEIGHT, '| container rect:', rect.width, 'x', rect.height);
+    console.log('[PIN] SVG viewBox: 0 0', planW, planH, '| container rect:', rect.width, 'x', rect.height);
 
     this.renderPins();
   }
