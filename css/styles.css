@@ -94,25 +94,32 @@ body {
 .map-wrapper {
   position: relative;
   display: inline-block;
-  line-height: 0; /* Убирает отступ под img */
+  line-height: 0;
   max-width: 1545px;
   width: 100%;
   aspect-ratio: 1545 / 763;
+  overflow: hidden;
 }
 
+/* Размер контейнера задаётся aspect-ratio до загрузки img */
 .map-wrapper img#floor-plan {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: contain;
   display: block;
-  vertical-align: top;
 }
 
+#pins-layer,
 .pins-layer {
   position: absolute;
   top: 0;
   left: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
-  /* Размеры устанавливаются в JS */
 }
 
 /* Пины на карте */
@@ -239,10 +246,13 @@ body {
   font-size: 1.1rem;
 }
 
-.item-category {
+.item-category,
+.category-badge {
   font-size: 0.8rem;
-  color: #aaa;
+  color: #fff;
   text-transform: capitalize;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
 }
 
 .item-condition {
@@ -264,16 +274,28 @@ body {
   margin-bottom: 0.5rem;
 }
 
-.item-thumb {
+.item-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.item-thumb,
+.item-photo {
   max-width: 120px;
   max-height: 90px;
+  width: 80px;
+  height: 80px;
   border-radius: 4px;
   cursor: pointer;
   object-fit: cover;
+  border: 1px solid #444;
 }
 
-.item-thumb:hover {
-  opacity: 0.9;
+.item-thumb:hover,
+.item-photo:hover {
+  opacity: 0.8;
 }
 
 /* Footer */
@@ -363,6 +385,43 @@ body {
 /* Utility */
 .hidden {
   display: none !important;
+}
+
+/* Building / floor tabs */
+.building-tabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: #111827;
+  border-bottom: 1px solid #2d2d2d;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+
+.building-tabs::-webkit-scrollbar { display: none; }
+
+.tab {
+  padding: 0.4rem 1.1rem;
+  border: 1px solid #444;
+  border-radius: 20px;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  font-family: inherit;
+}
+
+.tab:hover { border-color: #aaa; color: #ddd; }
+
+.tab.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
+  font-weight: 500;
 }
 
 /* Responsive */

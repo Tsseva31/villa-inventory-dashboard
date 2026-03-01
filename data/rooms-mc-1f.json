@@ -1,0 +1,112 @@
+{
+  "MC131": {
+    "name": "BAR",
+    "x": 239,
+    "y": 285
+  },
+  "MC132": {
+    "name": "GRAND DINING",
+    "x": 378,
+    "y": 285
+  },
+  "MC133": {
+    "name": "GRAND LIVING",
+    "x": 614,
+    "y": 261
+  },
+  "MC134": {
+    "name": "SUNKEN LOUNGE",
+    "x": 615,
+    "y": 111
+  },
+  "MC130": {
+    "name": "GRAND COLONADE",
+    "x": 612,
+    "y": 359
+  },
+  "MC129": {
+    "name": "ASIAN KITCHEN",
+    "x": 186,
+    "y": 478
+  },
+  "MC121": {
+    "name": "OWNER KITCHEN",
+    "x": 437,
+    "y": 479
+  },
+  "MC119": {
+    "name": "WINE CELLAR",
+    "x": 566,
+    "y": 480
+  },
+  "MC117": {
+    "name": "POWDER ROOM",
+    "x": 631,
+    "y": 467
+  },
+  "MC127": {
+    "name": "LININ STORE",
+    "x": 95,
+    "y": 620
+  },
+  "MC126": {
+    "name": "WALK IN FRIDGE",
+    "x": 212,
+    "y": 588
+  },
+  "MC124": {
+    "name": "ENTRY",
+    "x": 305,
+    "y": 583
+  },
+  "MC120A": {
+    "name": "STORE",
+    "x": 582,
+    "y": 589
+  },
+  "MC135": {
+    "name": "EXTERIOR LOUNGE",
+    "x": 863,
+    "y": 178
+  },
+  "MC116": {
+    "name": "GRAND LOBBY",
+    "x": 857,
+    "y": 380
+  },
+  "MC138": {
+    "name": "READING",
+    "x": 1117,
+    "y": 144
+  },
+  "MC137": {
+    "name": "LIBRARY",
+    "x": 1116,
+    "y": 241
+  },
+  "MC139": {
+    "name": "OFFICE",
+    "x": 1267,
+    "y": 232
+  },
+  "MC112": {
+    "name": "GRAND COLLONADE_R",
+    "x": 1230,
+    "y": 368
+  },
+  "MC115": {
+    "name": "POWDER ROOM_R",
+    "x": 1019,
+    "y": 468
+  },
+  "MC113": {
+    "name": "HOOLYWOOD MOVIE THEATRE",
+    "x": 1213,
+    "y": 500
+  },
+  "MC125": {
+    "name": "WALK IN FREEZER",
+    "x": 264,
+    "y": 595
+  }
+}
