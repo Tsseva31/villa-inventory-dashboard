@@ -95,21 +95,16 @@ body {
   position: relative;
   display: inline-block;
   line-height: 0;
-  max-width: 1545px;
   width: 100%;
-  aspect-ratio: 1545 / 763;
   overflow: hidden;
+  /* aspect-ratio и max-width выставляются динамически из JS (map.js updateScale) */
 }
 
-/* Размер контейнера задаётся aspect-ratio до загрузки img */
 .map-wrapper img#floor-plan {
-  position: absolute;
-  top: 0;
-  left: 0;
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  display: block;
+  object-fit: fill;
 }
 
 #pins-layer,

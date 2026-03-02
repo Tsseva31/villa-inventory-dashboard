@@ -8,10 +8,10 @@
     * { box-sizing: border-box; }
     body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; display: flex; gap: 24px; align-items: flex-start; }
     h1 { margin: 0 0 16px; font-size: 1.25rem; }
-    .plan-wrap { position: relative; width: 1545px; height: 763px; flex-shrink: 0; }
-    .plan-wrap img { display: block; width: 1545px; height: 763px; }
+    .plan-wrap { position: relative; width: 1238px; height: 1242px; flex-shrink: 0; }
+    .plan-wrap img { display: block; width: 1238px; height: 1242px; }
     .plan-wrap canvas { position: absolute; left: 0; top: 0; pointer-events: none; }
-    .click-layer { position: absolute; left: 0; top: 0; width: 1545px; height: 763px; cursor: crosshair; }
+    .click-layer { position: absolute; left: 0; top: 0; width: 1238px; height: 1242px; cursor: crosshair; }
     .sidebar { min-width: 280px; }
     .next-hint { background: #e8f4fc; padding: 10px 12px; border-radius: 8px; margin-bottom: 12px; font-weight: 500; }
     .list { list-style: none; padding: 0; margin: 0 0 12px; max-height: 400px; overflow-y: auto; }
@@ -27,8 +27,8 @@
     <h1>Floor plan calibration — SG Lower</h1>
     <p style="margin:0 0 12px;color:#666;">Click the center of each room in order. Remove wrong clicks from the list, then Export JSON.</p>
     <div class="plan-wrap">
-      <img id="plan" src="assets/floor-plan-sg-lower.png" alt="Floor plan" width="1545" height="763">
-      <canvas id="markers" width="1545" height="763"></canvas>
+      <img id="plan" src="assets/floor-plan-sg-lower.png" alt="Floor plan" width="1238" height="1242">
+      <canvas id="markers" width="1238" height="1242"></canvas>
       <div class="click-layer" id="click-layer"></div>
     </div>
   </div>
@@ -39,8 +39,8 @@
   </aside>
 
   <script>
-    const FLOOR_W = 1545;
-    const FLOOR_H = 763;
+    const FLOOR_W = 1238;
+    const FLOOR_H = 1242;
 
     let roomOrder = [];
     let points = [];
