@@ -1,15 +1,67 @@
 {
-  "ENT01": {"name": "TV Game Zone", "x": 0, "y": 0},
-  "ENT02": {"name": "Equipment Rack", "x": 0, "y": 0},
-  "ENT03": {"name": "Lady WC", "x": 0, "y": 0},
-  "ENT04": {"name": "Gent WC", "x": 0, "y": 0},
-  "ENT05": {"name": "Game Zone", "x": 0, "y": 0},
-  "ENT06": {"name": "Bar Zone", "x": 0, "y": 0},
-  "ENT07": {"name": "Lounge", "x": 0, "y": 0},
-  "ENT08": {"name": "Bowling Alley", "x": 0, "y": 0},
-  "ENT09": {"name": "Foyer", "x": 0, "y": 0},
-  "ENT10": {"name": "Dressing", "x": 0, "y": 0},
-  "ENT11": {"name": "Bathroom", "x": 0, "y": 0},
-  "ENT12": {"name": "Toilet", "x": 0, "y": 0},
-  "ENT13": {"name": "Pantry", "x": 0, "y": 0}
+  "ENT01": {
+    "name": "TV Game Zone",
+    "x": 162,
+    "y": 221
+  },
+  "ENT02": {
+    "name": "Equipment Rack",
+    "x": 128,
+    "y": 333
+  },
+  "ENT03": {
+    "name": "Lady WC",
+    "x": 125,
+    "y": 416
+  },
+  "ENT04": {
+    "name": "Gent WC",
+    "x": 122,
+    "y": 539
+  },
+  "ENT05": {
+    "name": "Game Zone",
+    "x": 360,
+    "y": 429
+  },
+  "ENT06": {
+    "name": "Bar Zone",
+    "x": 722,
+    "y": 447
+  },
+  "ENT07": {
+    "name": "Lounge",
+    "x": 1090,
+    "y": 459
+  },
+  "ENT08": {
+    "name": "Bowling Alley",
+    "x": 786,
+    "y": 190
+  },
+  "ENT09": {
+    "name": "Foyer",
+    "x": 1301,
+    "y": 278
+  },
+  "ENT10": {
+    "name": "Dressing",
+    "x": 1302,
+    "y": 356
+  },
+  "ENT11": {
+    "name": "Bathroom",
+    "x": 1262,
+    "y": 417
+  },
+  "ENT12": {
+    "name": "Toilet",
+    "x": 1343,
+    "y": 432
+  },
+  "ENT13": {
+    "name": "Pantry",
+    "x": 1299,
+    "y": 536
+  }
 }

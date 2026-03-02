@@ -1,12 +1,52 @@
 {
-  "SG01": {"name": "Archie Room", "x": 0, "y": 0},
-  "SG02": {"name": "Ensuite (Archie)", "x": 0, "y": 0},
-  "SG03": {"name": "WIR (Archie)", "x": 0, "y": 0},
-  "SG04": {"name": "Butler", "x": 0, "y": 0},
-  "SG05": {"name": "Anuta Room", "x": 0, "y": 0},
-  "SG06": {"name": "Ensuite (Anuta)", "x": 0, "y": 0},
-  "SG07": {"name": "WIR (Anuta)", "x": 0, "y": 0},
-  "SG08": {"name": "Pool Pantry", "x": 0, "y": 0},
-  "SG09": {"name": "Pool Change", "x": 0, "y": 0},
-  "SG10": {"name": "AG Bar", "x": 0, "y": 0}
+  "SG01": {
+    "name": "Archie Room",
+    "x": 902,
+    "y": 191
+  },
+  "SG02": {
+    "name": "Ensuite (Archie)",
+    "x": 699,
+    "y": 197
+  },
+  "SG03": {
+    "name": "WIR (Archie)",
+    "x": 586,
+    "y": 197
+  },
+  "SG04": {
+    "name": "Butler",
+    "x": 765,
+    "y": 277
+  },
+  "SG05": {
+    "name": "Anuta Room",
+    "x": 901,
+    "y": 378
+  },
+  "SG06": {
+    "name": "Ensuite (Anuta)",
+    "x": 696,
+    "y": 378
+  },
+  "SG07": {
+    "name": "WIR (Anuta)",
+    "x": 584,
+    "y": 377
+  },
+  "SG08": {
+    "name": "Pool Pantry",
+    "x": 586,
+    "y": 460
+  },
+  "SG09": {
+    "name": "Pool Change",
+    "x": 806,
+    "y": 454
+  },
+  "SG10": {
+    "name": "AG Bar",
+    "x": 807,
+    "y": 558
+  }
 }
