@@ -44,6 +44,7 @@ class FloorMap {
   setFloorPlanDimensions(width, height) {
     this.floorPlanWidth = width || null;
     this.floorPlanHeight = height || null;
+    this.updateScale();
   }
 
   initResizeObserver() {
@@ -108,7 +109,7 @@ class FloorMap {
 
     // SVG always in natural floor-plan coords; scaling via viewBox
     this.pinsLayer.setAttribute('viewBox', '0 0 ' + planW + ' ' + planH);
-    this.pinsLayer.setAttribute('preserveAspectRatio', 'xMinYMin meet');
+    this.pinsLayer.setAttribute('preserveAspectRatio', 'none');
     this.pinsLayer.setAttribute('width', '100%');
     this.pinsLayer.setAttribute('height', '100%');
     this.pinsLayer.style.position = 'absolute';
@@ -136,7 +137,7 @@ class FloorMap {
     const yScale = CONFIG.COORD_Y_SCALE || 1.0;
 
     const roomCodes = Object.keys(this.rooms);
-    console.log('[PIN] 4. map.js renderPins: rooms (pins) count =', roomCodes.length, '| coords in viewBox space (0 0 1545 763)');
+    console.log('[PIN] 4. map.js renderPins: rooms (pins) count =', roomCodes.length, '| coords in viewBox space (0 0 ' + (this.floorPlanWidth || CONFIG.FLOOR_PLAN_WIDTH) + ' ' + (this.floorPlanHeight || CONFIG.FLOOR_PLAN_HEIGHT) + ')');
     console.log('[PIN] Calibration: xOffset=' + xOffset, 'yOffset=' + yOffset, 'xScale=' + xScale, 'yScale=' + yScale);
 
     Object.entries(this.rooms).forEach(([code, coords]) => {

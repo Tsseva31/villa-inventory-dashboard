@@ -73,7 +73,8 @@ class App {
   /** Fetch rooms JSON; returns {} on error (e.g. empty stubs for new buildings). */
   async _fetchRooms(roomsFile) {
     try {
-      const res = await fetch(roomsFile);
+      // Добавляем timestamp, чтобы браузер всегда качал свежий JSON
+      const res = await fetch(roomsFile + '?nocache=' + Date.now());
       if (!res.ok) return {};
       return await res.json();
     } catch (e) {
