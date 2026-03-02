@@ -10,48 +10,48 @@ const CONFIG = {
     'mc-1f': {
       label: 'MC',
       floorPlan: 'assets/floor-plan-mc-1f.png',
-      width: 1545,
-      height: 763,
+      width: 2000,
+      height: 1000,
       roomsFile: 'data/rooms-mc-1f.json',
       buildingId: 1
     },
     'mv-1f': {
       label: 'MV — Spa & Gym',
       floorPlan: 'assets/floor-plan-mv-1f.png',
-      width: 1545,
-      height: 763,
+      width: 2382,
+      height: 1684,
       roomsFile: 'data/rooms-mv-1f.json',
       buildingId: 2
     },
     'mv-2f': {
       label: 'MV — Master Suite',
       floorPlan: 'assets/floor-plan-mv-2f.png',
-      width: 1545,
-      height: 763,
+      width: 2382,
+      height: 1684,
       roomsFile: 'data/rooms-mv-2f.json',
       buildingId: 2
     },
     'sg-lower': {
       label: 'SG — Lower',
       floorPlan: 'assets/floor-plan-sg-lower.png',
-      width: 1545,
-      height: 763,
+      width: 1238,
+      height: 1242,
       roomsFile: 'data/rooms-sg-lower.json',
       buildingId: 3
     },
     'sg-upper': {
       label: 'SG — Upper',
       floorPlan: 'assets/floor-plan-sg-upper.png',
-      width: 1545,
-      height: 763,
+      width: 1218,
+      height: 1238,
       roomsFile: 'data/rooms-sg-upper.json',
       buildingId: 3
     },
     'ent': {
       label: 'Entertainment',
       floorPlan: 'assets/floor-plan-ent.png',
-      width: 1545,
-      height: 763,
+      width: 1739,
+      height: 1189,
       roomsFile: 'data/rooms-ent.json',
       buildingId: 4
     }
@@ -59,8 +59,8 @@ const CONFIG = {
 
   // Floor plan (legacy — kept for backwards compat; map.js uses BUILDINGS when available)
   FLOOR_PLAN: 'assets/floor-plan-mc-1f.png',
-  FLOOR_PLAN_WIDTH: 1545,
-  FLOOR_PLAN_HEIGHT: 763,
+  FLOOR_PLAN_WIDTH: 2000,
+  FLOOR_PLAN_HEIGHT: 1000,
 
   // Pin sizes — увеличить для лучшей видимости
   PIN_SIZE: 22,        // было 20
