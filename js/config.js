@@ -21,7 +21,7 @@ const CONFIG = {
       width: 2382,
       height: 1684,
       roomsFile: 'data/rooms-mv-1f.json',
-      buildingId: 2
+      buildingId: 4
     },
     'mv-2f': {
       label: 'MV — Master Suite',
@@ -29,7 +29,7 @@ const CONFIG = {
       width: 2382,
       height: 1684,
       roomsFile: 'data/rooms-mv-2f.json',
-      buildingId: 2
+      buildingId: 4
     },
     'sg-lower': {
       label: 'SG — Lower',
@@ -37,7 +37,7 @@ const CONFIG = {
       width: 1238,
       height: 1242,
       roomsFile: 'data/rooms-sg-lower.json',
-      buildingId: 3
+      buildingId: 5
     },
     'sg-upper': {
       label: 'SG — Upper',
@@ -45,7 +45,7 @@ const CONFIG = {
       width: 1218,
       height: 1238,
       roomsFile: 'data/rooms-sg-upper.json',
-      buildingId: 3
+      buildingId: 5
     },
     'ent': {
       label: 'Entertainment',
@@ -53,7 +53,7 @@ const CONFIG = {
       width: 1739,
       height: 1189,
       roomsFile: 'data/rooms-ent.json',
-      buildingId: 4
+      buildingId: 2
     }
   },
 
