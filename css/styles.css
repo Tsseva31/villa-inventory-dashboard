@@ -482,6 +482,10 @@ body {
   border-color: #3b82f6;
   color: #fff;
 }
+.view-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
 
 /* ── List Container ───────────────────────────── */
 .list-container {
