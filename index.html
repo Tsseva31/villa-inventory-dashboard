@@ -23,6 +23,9 @@
         <!-- Options populated from CONFIG.CONDITIONS in app.js (Все + 5 conditions) -->
       </select>
       <input type="text" id="filter-search" placeholder="Search...">
+      <select id="filter-room" title="Фильтр по комнате">
+        <option value="">Все комнаты</option>
+      </select>
     </div>
   </header>
 
@@ -34,6 +37,10 @@
     <button class="tab" data-building="sg-lower">SG — Lower</button>
     <button class="tab" data-building="sg-upper">SG — Upper</button>
     <button class="tab" data-building="ent">Entertainment</button>
+    <div class="view-toggle">
+      <button class="view-btn active" data-view="map" title="Карта">🗺️</button>
+      <button class="view-btn" data-view="list" title="Список">📋</button>
+    </div>
   </nav>
 
   <!-- Main content -->
@@ -45,6 +52,27 @@
         <svg id="pins-layer" class="pins-layer"></svg>
       </div>
       <div id="tooltip" class="tooltip hidden"></div>
+    </div>
+
+    <!-- List view -->
+    <div class="list-container hidden" id="list-container">
+      <div class="list-stats" id="list-stats"></div>
+      <div class="list-table-wrapper">
+        <table class="inventory-table" id="inventory-table">
+          <thead>
+            <tr>
+              <th>Комната</th>
+              <th>Категория</th>
+              <th>Описание</th>
+              <th>Состояние</th>
+              <th>Кол-во</th>
+              <th>Фото</th>
+              <th>Дата</th>
+            </tr>
+          </thead>
+          <tbody id="inventory-tbody"></tbody>
+        </table>
+      </div>
     </div>
 
     <!-- Sidebar with room details -->

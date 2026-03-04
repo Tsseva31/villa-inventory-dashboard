@@ -454,3 +454,101 @@ body {
     margin-left: 0;
   }
 }
+
+/* ── View Toggle ──────────────────────────────── */
+.view-toggle {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 12px;
+  align-self: center;
+}
+.view-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #444;
+  background: #252540;
+  color: #ccc;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.view-btn:hover { background: #333; }
+.view-btn.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
+}
+
+/* ── List Container ───────────────────────────── */
+.list-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0 1rem 1rem;
+  background: var(--main-bg, #16213e);
+}
+.list-stats {
+  padding: 0.5rem 0;
+  font-size: 13px;
+  color: #aaa;
+}
+.list-table-wrapper {
+  overflow: auto;
+  flex: 1;
+  border-radius: 6px;
+  border: 1px solid #333;
+}
+
+/* ── Inventory Table ──────────────────────────── */
+.inventory-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  color: #ddd;
+}
+.inventory-table thead th {
+  background: #1a1a2e;
+  color: #aaa;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 11px;
+  padding: 10px 12px;
+  text-align: left;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  border-bottom: 1px solid #333;
+}
+.inventory-table tbody tr {
+  border-bottom: 1px solid #252540;
+  transition: background 0.1s;
+}
+.inventory-table tbody tr:nth-child(even) { background: rgba(255,255,255,0.03); }
+.inventory-table tbody tr:hover { background: rgba(59,130,246,0.12); }
+.inventory-table td {
+  padding: 8px 12px;
+  vertical-align: middle;
+}
+.list-room-name {
+  font-size: 11px;
+  color: #888;
+}
+.list-date { color: #888; font-size: 12px; white-space: nowrap; }
+.list-photo-link {
+  color: #3b82f6;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.list-photo-link:hover { text-decoration: underline; }
+
+/* ── Mobile ───────────────────────────────────── */
+@media (max-width: 768px) {
+  .list-container { padding: 0 0.5rem 0.5rem; }
+  .list-table-wrapper { overflow-x: auto; }
+  .inventory-table { min-width: 600px; }
+}

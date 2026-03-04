@@ -20,10 +20,13 @@ class App {
 
     this.activeBuilding = (CONFIG.DEFAULT_BUILDING) || 'mc-1f';
 
+    this.viewMode = 'map';
+
     this.filters = {
       category: '',
       condition: '',
-      search: ''
+      search: '',
+      room: ''
     };
 
     this.init();
@@ -52,6 +55,8 @@ class App {
     this.setupSidebar();
     this.setupModal();
     this.setupBuildingTabs();
+    this.setupViewToggle();
+    this.setupRoomFilter();
     this.renderLegend();
 
     this.applyFilters();
@@ -126,6 +131,12 @@ class App {
     // Load room coords for this building
     this.roomsCoords = await this._fetchRooms(building.roomsFile);
 
+    // Reset room filter for new building
+    this.filters.room = '';
+    const roomSelect = document.getElementById('filter-room');
+    if (roomSelect) roomSelect.value = '';
+    this.updateRoomFilterOptions();
+
     // Update map
     this.map.setFloorPlanDimensions(building.width, building.height);
     this.map.setRooms(this.roomsCoords);
@@ -140,6 +151,170 @@ class App {
 
     // Rerender pins with filtered data
     this.applyFilters();
+  }
+
+  /** Toggle between map and list view modes. */
+  setupViewToggle() {
+    document.querySelectorAll('.view-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const view = btn.dataset.view;
+        if (view === this.viewMode) return;
+        this.viewMode = view;
+        document.querySelectorAll('.view-btn').forEach(b =>
+          b.classList.toggle('active', b.dataset.view === view));
+        const mapContainer = document.querySelector('.map-container');
+        const listContainer = document.getElementById('list-container');
+        if (view === 'list') {
+          mapContainer.classList.add('hidden');
+          listContainer.classList.remove('hidden');
+          this.renderListView();
+        } else {
+          mapContainer.classList.remove('hidden');
+          listContainer.classList.add('hidden');
+        }
+      });
+    });
+  }
+
+  /** Wire up room filter dropdown. */
+  setupRoomFilter() {
+    const roomSelect = document.getElementById('filter-room');
+    if (!roomSelect) return;
+    this.updateRoomFilterOptions();
+    roomSelect.addEventListener('change', (e) => {
+      this.filters.room = e.target.value;
+      this.applyFilters();
+    });
+  }
+
+  /** Repopulate room filter options from current building's roomsCoords. */
+  updateRoomFilterOptions() {
+    const roomSelect = document.getElementById('filter-room');
+    if (!roomSelect) return;
+    const currentVal = roomSelect.value;
+    roomSelect.innerHTML = '<option value="">Все комнаты</option>';
+    Object.keys(this.roomsCoords).sort().forEach(code => {
+      const name = this.roomsCoords[code] && this.roomsCoords[code].name
+        ? this.roomsCoords[code].name : '';
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = code + (name ? ' — ' + name : '');
+      if (code === currentVal) opt.selected = true;
+      roomSelect.appendChild(opt);
+    });
+  }
+
+  /** Render the list view table for the current building + active filters. */
+  renderListView() {
+    const tbody = document.getElementById('inventory-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const roomsInList = new Set();
+
+    const filtered = this.items.filter(item => {
+      if (!this.itemBelongsToBuilding(item)) return false;
+      const norm = this.normalizeItemFields(item);
+      const code = item.room_code || this.roomIdToCode[item.room_id] || '';
+      const filterCat = (this.filters.category && String(this.filters.category).trim()) || '';
+      if (filterCat && norm.category !== filterCat) return false;
+      if (this.filters.condition && (norm.condition || '') !== this.filters.condition) return false;
+      if (this.filters.room && code !== this.filters.room) return false;
+      if (this.filters.search) {
+        const s = this.filters.search.toLowerCase();
+        const roomName = (this.roomsCoords[code] && this.roomsCoords[code].name
+          ? this.roomsCoords[code].name : '').toLowerCase();
+        if (!(item.description || '').toLowerCase().includes(s) &&
+            !roomName.includes(s) && !code.toLowerCase().includes(s)) return false;
+      }
+      return true;
+    });
+
+    filtered.sort((a, b) => {
+      const ca = (a.room_code || this.roomIdToCode[a.room_id] || '').toLowerCase();
+      const cb = (b.room_code || this.roomIdToCode[b.room_id] || '').toLowerCase();
+      if (ca !== cb) return ca.localeCompare(cb);
+      return this.normalizeItemFields(a).category.localeCompare(
+        this.normalizeItemFields(b).category);
+    });
+
+    filtered.forEach(item => {
+      const norm = this.normalizeItemFields(item);
+      const code = item.room_code || this.roomIdToCode[item.room_id] || '';
+      const coords = this.roomsCoords[code];
+      const roomName = coords && coords.name ? coords.name : '';
+      if (code) roomsInList.add(code);
+
+      const tr = document.createElement('tr');
+
+      // Room
+      const tdRoom = document.createElement('td');
+      tdRoom.innerHTML = '<strong>' + (code || '—') + '</strong>' +
+        (roomName ? '<br><span class="list-room-name">' + roomName + '</span>' : '');
+
+      // Category
+      const tdCat = document.createElement('td');
+      const icon = (CONFIG.CATEGORY_ICONS && CONFIG.CATEGORY_ICONS[norm.category]) || '';
+      const catColor = (CONFIG.CATEGORY_COLORS && CONFIG.CATEGORY_COLORS[norm.category]) || '#999';
+      tdCat.innerHTML = '<span class="list-cat-badge" style="background:' + catColor +
+        ';color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;white-space:nowrap">' +
+        icon + ' ' + norm.category + '</span>';
+
+      // Description
+      const tdDesc = document.createElement('td');
+      const desc = item.description || '—';
+      tdDesc.textContent = desc.length > 80 ? desc.slice(0, 80) + '…' : desc;
+      tdDesc.title = desc;
+
+      // Condition
+      const tdCond = document.createElement('td');
+      const condColor = (CONFIG.CONDITION_COLORS && CONFIG.CONDITION_COLORS[norm.condition]) || '#888';
+      tdCond.innerHTML = '<span class="list-cond-badge" style="background:' + condColor +
+        ';color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;white-space:nowrap">' +
+        (norm.condition || '—') + '</span>';
+
+      // Quantity
+      const tdQty = document.createElement('td');
+      tdQty.textContent = norm.quantity;
+      tdQty.style.textAlign = 'center';
+
+      // Photos
+      const tdPhoto = document.createElement('td');
+      const photos = Array.isArray(item.photos) ? item.photos.filter(p => {
+        const u = typeof p === 'string' ? p : (p && p.url ? p.url : '');
+        return u && u.startsWith('http');
+      }) : [];
+      if (photos.length) {
+        const link = document.createElement('span');
+        link.className = 'list-photo-link';
+        link.textContent = '📷 ' + photos.length;
+        link.addEventListener('click', () => {
+          const p = photos[0];
+          this.showPhoto(typeof p === 'string' ? p : p.url);
+        });
+        tdPhoto.appendChild(link);
+      } else {
+        tdPhoto.textContent = '—';
+      }
+
+      // Date
+      const tdDate = document.createElement('td');
+      tdDate.className = 'list-date';
+      if (item.created_at) {
+        try { tdDate.textContent = new Date(item.created_at).toLocaleDateString('ru-RU'); }
+        catch (e) { tdDate.textContent = item.created_at; }
+      } else {
+        tdDate.textContent = '—';
+      }
+
+      [tdRoom, tdCat, tdDesc, tdCond, tdQty, tdPhoto, tdDate]
+        .forEach(td => tr.appendChild(td));
+      tbody.appendChild(tr);
+    });
+
+    const listStats = document.getElementById('list-stats');
+    if (listStats) listStats.textContent =
+      'Показано: ' + filtered.length + ' предметов в ' + roomsInList.size + ' комнатах';
   }
 
   /** Wire up click events for building tab buttons. */
@@ -187,16 +362,10 @@ class App {
     });
   }
 
-  /** Нормализация полей: исправляет перепутанные quantity/condition из API */
+  /** Нормализация полей item: quantity → int, category → строка. */
   normalizeItemFields(item) {
-    const CONDITION_VALUES = ['Отличное', 'Хорошее', 'Удовлетворительное', 'Требует ремонта', 'Неисправно'];
-    let condition = item.condition;
-    let quantity = item.quantity;
-    if (typeof item.quantity === 'string' && CONDITION_VALUES.includes(item.quantity)) {
-      condition = item.quantity;
-      quantity = item.condition;
-    }
-    quantity = parseInt(quantity, 10) || 1;
+    const condition = item.condition;
+    const quantity = parseInt(item.quantity, 10) || 1;
     let category = (item.category && String(item.category).trim()) || 'unknown';
     if (category === item.room_code || !category) category = 'unknown';
     return { condition, quantity, category };
@@ -252,6 +421,11 @@ class App {
     let visibleRooms = 0;
 
     Object.keys(this.roomsCoords).forEach(code => {
+      if (this.filters.room && code !== this.filters.room) {
+        roomsData[code] = { items: [], dominantCategory: 'empty' };
+        return;
+      }
+
       let items = itemsByRoom[code] || [];
 
       items = items.filter(item => {
@@ -292,6 +466,8 @@ class App {
     this.updateStats(totalItems, visibleRooms);
 
     this.currentRoomsData = roomsData;
+
+    if (this.viewMode === 'list') this.renderListView();
   }
 
   filterItems() {
