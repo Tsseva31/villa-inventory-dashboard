@@ -63,8 +63,11 @@ class API {
       // Проверка успешности ответа
       if (data.error) {
         console.error('API returned error:', data.error);
+        window._apiUnavailable = true;
         return this.getMockData(action);
       }
+
+      window._apiUnavailable = false;
 
       // D2.3: диагностика фото — для каждого item логируем поля с фото
       if (data.items && Array.isArray(data.items)) {
@@ -80,6 +83,7 @@ class API {
     } catch (e) {
       console.error('API error:', e);
       console.warn('Falling back to mock data');
+      window._apiUnavailable = true;
       return this.getMockData(action);
     }
   }

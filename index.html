@@ -11,6 +11,10 @@
   <link rel="stylesheet" href="css/styles.css?v=3">
 </head>
 <body>
+  <div id="api-warning" style="background:#ff4444;color:white;padding:8px 16px;text-align:center;font-size:14px;display:none;">
+    ⚠️ API недоступен — показаны демо-данные / API unavailable — showing demo data
+  </div>
+
   <!-- Header with filters -->
   <header class="header">
     <h1>Villa Inventory Dashboard</h1>
@@ -105,6 +109,17 @@
       <button class="modal-close" id="modal-close" type="button" aria-label="Close">×</button>
       <img id="modal-photo" src="" alt="Photo">
     </div>
+  </div>
+
+  <!-- Lightbox -->
+  <div id="lightbox" class="lightbox-overlay">
+    <button class="lightbox-close" id="lightbox-close" type="button" aria-label="Close">×</button>
+    <button class="lightbox-nav lightbox-prev" id="lightbox-prev" type="button" aria-label="Previous">&#8249;</button>
+    <div class="lightbox-img-wrap">
+      <img id="lightbox-img" src="" alt="Photo">
+    </div>
+    <button class="lightbox-nav lightbox-next" id="lightbox-next" type="button" aria-label="Next">&#8250;</button>
+    <div class="lightbox-counter" id="lightbox-counter"></div>
   </div>
 
   <!-- Scripts -->

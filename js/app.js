@@ -54,6 +54,7 @@ class App {
     this.setupFilters();
     this.setupSidebar();
     this.setupModal();
+    this.setupLightbox();
     this.setupBuildingTabs();
     this.setupViewToggle();
     this.setupRoomFilter();
@@ -365,14 +366,14 @@ class App {
         const u = typeof p === 'string' ? p : (p && p.url ? p.url : '');
         return u && u.startsWith('http');
       }) : [];
-      if (photos.length) {
+      const listPhotoUrls = photos.map(p => typeof p === 'string' ? p : p.url);
+      const nameplateUrl = (item.nameplate_photo && item.nameplate_photo.startsWith('http')) ? item.nameplate_photo : null;
+      if (nameplateUrl) listPhotoUrls.push(nameplateUrl);
+      if (listPhotoUrls.length) {
         const link = document.createElement('span');
         link.className = 'list-photo-link';
-        link.textContent = '📷 ' + photos.length;
-        link.addEventListener('click', () => {
-          const p = photos[0];
-          this.showPhoto(typeof p === 'string' ? p : p.url);
-        });
+        link.textContent = '📷 ' + listPhotoUrls.length;
+        link.addEventListener('click', () => this.openLightbox(listPhotoUrls, 0));
         tdPhoto.appendChild(link);
       } else {
         tdPhoto.textContent = '—';
@@ -422,6 +423,7 @@ class App {
 
   async loadData() {
     this.showLoading();
+    window._apiUnavailable = false;
 
     try {
       this.rooms = await api.getRooms();
@@ -434,6 +436,9 @@ class App {
       console.error('Data loading error:', e);
       this.showError('Failed to load data. Check API settings.');
     }
+
+    const banner = document.getElementById('api-warning');
+    if (banner) banner.style.display = window._apiUnavailable ? 'block' : 'none';
 
     this.hideLoading();
   }
@@ -664,6 +669,59 @@ class App {
     });
   }
 
+  setupLightbox() {
+    document.getElementById('lightbox-close').addEventListener('click', () => this.closeLightbox());
+    document.getElementById('lightbox').addEventListener('click', (e) => {
+      if (e.target.id === 'lightbox') this.closeLightbox();
+    });
+    document.getElementById('lightbox-prev').addEventListener('click', () => this._lightboxNav(-1));
+    document.getElementById('lightbox-next').addEventListener('click', () => this._lightboxNav(1));
+
+    document.addEventListener('keydown', (e) => {
+      if (!document.getElementById('lightbox').classList.contains('lightbox-open')) return;
+      if (e.key === 'Escape') this.closeLightbox();
+      else if (e.key === 'ArrowLeft') this._lightboxNav(-1);
+      else if (e.key === 'ArrowRight') this._lightboxNav(1);
+    });
+  }
+
+  openLightbox(photos, index) {
+    this._lbPhotos = photos;
+    this._lbIndex = index;
+    this._lightboxUpdate();
+    document.getElementById('lightbox').classList.add('lightbox-open');
+  }
+
+  closeLightbox() {
+    document.getElementById('lightbox').classList.remove('lightbox-open');
+  }
+
+  _lightboxNav(dir) {
+    const len = this._lbPhotos.length;
+    this._lbIndex = (this._lbIndex + dir + len) % len;
+    this._lightboxUpdate();
+  }
+
+  _lightboxUpdate() {
+    const url = this._lbPhotos[this._lbIndex];
+    document.getElementById('lightbox-img').src = this._getFullPhotoUrl(url);
+    const total = this._lbPhotos.length;
+    document.getElementById('lightbox-counter').textContent = (this._lbIndex + 1) + ' / ' + total;
+    const prev = document.getElementById('lightbox-prev');
+    const next = document.getElementById('lightbox-next');
+    prev.classList.toggle('hidden', total <= 1);
+    next.classList.toggle('hidden', total <= 1);
+  }
+
+  _getFullPhotoUrl(url) {
+    if (!url || typeof url !== 'string') return '';
+    const normalized = convertDriveUrl(url);
+    if (!normalized) return url;
+    const match = normalized.match(/[?&]id=([a-zA-Z0-9_-]+)/) || normalized.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    const fileId = match ? match[1] : null;
+    return fileId ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1200' : normalized;
+  }
+
   showRoomDetails(code) {
     const sidebar = document.getElementById('sidebar');
     this.sidebar = sidebar;
@@ -785,13 +843,20 @@ class App {
     itemPhotos.className = 'item-photos';
     itemPhotos.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;';
 
-    const photos = (item.photos && Array.isArray(item.photos)) ? item.photos : [];
-    photos.forEach((photoUrl, index) => {
+    const rawPhotos = (item.photos && Array.isArray(item.photos)) ? item.photos : [];
+    const allPhotoUrls = [];
+    rawPhotos.forEach(photoUrl => {
       let urlStr = '';
       if (typeof photoUrl === 'string') urlStr = photoUrl;
       else if (photoUrl && typeof photoUrl === 'object' && photoUrl.url) urlStr = photoUrl.url;
       else if (photoUrl != null) urlStr = String(photoUrl);
-      if (!urlStr || !urlStr.startsWith('http')) return;
+      if (urlStr && urlStr.startsWith('http')) allPhotoUrls.push(urlStr);
+    });
+    if (norm.nameplate_photo && norm.nameplate_photo.startsWith('http')) {
+      allPhotoUrls.push(norm.nameplate_photo);
+    }
+
+    allPhotoUrls.forEach((urlStr, index) => {
       const img = document.createElement('img');
       const thumbnailUrl = this.getDriveThumbnail(urlStr);
       if (thumbnailUrl) {
@@ -804,7 +869,7 @@ class App {
           console.error('[createItemElement] Failed to load photo ' + index + ':', urlStr);
           img.style.display = 'none';
         };
-        img.onclick = () => this.showPhoto(urlStr);
+        img.onclick = () => this.openLightbox(allPhotoUrls, index);
         itemPhotos.appendChild(img);
       }
     });
