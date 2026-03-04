@@ -341,9 +341,16 @@ class App {
       // Condition
       const tdCond = document.createElement('td');
       const condColor = (CONFIG.CONDITION_COLORS && CONFIG.CONDITION_COLORS[norm.condition]) || '#888';
-      tdCond.innerHTML = '<span class="list-cond-badge" style="background:' + condColor +
+      let condHtml = '<span class="list-cond-badge" style="background:' + condColor +
         ';color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;white-space:nowrap">' +
         (norm.condition || '—') + '</span>';
+      if (norm.repair_status) {
+        const rColors = { pending: '#F39C12', in_progress: '#E67E22', done: '#27AE60' };
+        const rColor = rColors[norm.repair_status] || '#F39C12';
+        condHtml += ' <span style="background:' + rColor +
+          ';color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;vertical-align:middle">🔧</span>';
+      }
+      tdCond.innerHTML = condHtml;
       tr.appendChild(tdCond);
 
       // Quantity
@@ -447,7 +454,12 @@ class App {
     const quantity = parseInt(item.quantity, 10) || 1;
     let category = (item.category && String(item.category).trim()) || 'unknown';
     if (category === item.room_code || !category) category = 'unknown';
-    return { condition, quantity, category };
+    return {
+      condition, quantity, category,
+      serial_model: item.serial_model || '',
+      nameplate_photo: item.nameplate_photo || '',
+      repair_status: item.repair_status || '',
+    };
   }
 
   getItemsByRoom() {
@@ -754,6 +766,20 @@ class App {
     quantityEl.style.cssText = 'font-size:13px;color:#666;margin-bottom:8px;';
     quantityEl.innerHTML = '<strong>Qty:</strong> ' + actualQuantity;
 
+    // === РЕМОНТ (badge) ===
+    let repairEl = null;
+    if (norm.repair_status) {
+      repairEl = document.createElement('div');
+      repairEl.style.cssText = 'font-size:12px;font-weight:600;margin-top:4px;margin-bottom:6px;';
+      const badgeMap = {
+        pending:     { icon: '🔧', color: '#F39C12', label: 'Ремонт ожидает' },
+        in_progress: { icon: '🔧', color: '#E67E22', label: 'В ремонте' },
+        done:        { icon: '✅', color: '#27AE60', label: 'Ремонт завершён' },
+      };
+      const b = badgeMap[norm.repair_status] || { icon: '🔧', color: '#F39C12', label: norm.repair_status };
+      repairEl.innerHTML = `<span style="background:${b.color};color:#fff;padding:2px 8px;border-radius:4px">${b.icon} ${b.label}</span>`;
+    }
+
     // === ФОТО ===
     const itemPhotos = document.createElement('div');
     itemPhotos.className = 'item-photos';
@@ -789,6 +815,7 @@ class App {
     itemEl.appendChild(descriptionEl);
     itemEl.appendChild(conditionEl);
     itemEl.appendChild(quantityEl);
+    if (repairEl) itemEl.appendChild(repairEl);
     itemEl.appendChild(itemPhotos);
 
     return itemEl;
