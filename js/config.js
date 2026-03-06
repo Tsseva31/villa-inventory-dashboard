@@ -54,8 +54,18 @@ const CONFIG = {
       height: 1189,
       roomsFile: 'data/rooms-ent.json',
       buildingId: 2
+    },
+    'str': {
+      label: '📦 Storage',
+      floorPlan: null,      // storage — no floor plan
+      roomsFile: null,      // rooms loaded from API, not local JSON
+      buildingCode: 'STR',
+      buildingId: null      // fill in after adding STR row to Здания sheet (Task 1)
     }
   },
+
+  // Building codes that are storage-type: no floor plan, always list view
+  STORAGE_BUILDING_IDS: ['STR'],
 
   // Floor plan (legacy — kept for backwards compat; map.js uses BUILDINGS when available)
   FLOOR_PLAN: 'assets/floor-plan-mc-1f.png',
