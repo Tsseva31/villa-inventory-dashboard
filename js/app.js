@@ -78,6 +78,7 @@ class App {
 
   /** Fetch rooms JSON; returns {} on error (e.g. empty stubs for new buildings). */
   async _fetchRooms(roomsFile) {
+    if (!roomsFile) return {};
     try {
       // Добавляем timestamp, чтобы браузер всегда качал свежий JSON
       const res = await fetch(roomsFile + '?nocache=' + Date.now());
@@ -124,6 +125,10 @@ class App {
 
     this.activeBuilding = buildingKey;
     const mapBtn = document.querySelector('.view-btn[data-view="map"]');
+    const viewToggle = document.querySelector('.view-toggle');
+    const buildingConfig = (CONFIG.BUILDINGS || {})[buildingKey] || {};
+    const isStorage = CONFIG.STORAGE_BUILDING_IDS &&
+      CONFIG.STORAGE_BUILDING_IDS.includes(buildingConfig.buildingCode);
 
     if (buildingKey === 'all') {
       // Force list view and disable map button
@@ -135,9 +140,31 @@ class App {
         document.getElementById('list-container').classList.remove('hidden');
       }
       if (mapBtn) mapBtn.disabled = true;
+      if (viewToggle) viewToggle.style.display = '';
+    } else if (isStorage) {
+      // Storage: force list view, hide the map/list toggle entirely
+      this.viewMode = 'list';
+      document.querySelectorAll('.view-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.view === 'list'));
+      document.querySelector('.map-container').classList.add('hidden');
+      document.getElementById('list-container').classList.remove('hidden');
+      if (mapBtn) mapBtn.disabled = true;
+      if (viewToggle) viewToggle.style.display = 'none';
+      this.roomsCoords = {};
     } else {
-      // Re-enable map button when leaving 'all'
+      // Regular building: re-enable toggle
+      const wasForced = mapBtn && mapBtn.disabled;
       if (mapBtn) mapBtn.disabled = false;
+      if (viewToggle) viewToggle.style.display = '';
+
+      // If we were in a forced-list mode (storage/all), restore map view
+      if (wasForced) {
+        this.viewMode = 'map';
+        document.querySelectorAll('.view-btn').forEach(b =>
+          b.classList.toggle('active', b.dataset.view === 'map'));
+        document.querySelector('.map-container').classList.remove('hidden');
+        document.getElementById('list-container').classList.add('hidden');
+      }
 
       const building = this._getBuilding(buildingKey);
 
@@ -243,6 +270,9 @@ class App {
     tbody.innerHTML = '';
 
     const isAll = this.activeBuilding === 'all';
+    const buildingConfig = (CONFIG.BUILDINGS || {})[this.activeBuilding] || {};
+    const isStorage = !isAll && CONFIG.STORAGE_BUILDING_IDS &&
+      CONFIG.STORAGE_BUILDING_IDS.includes(buildingConfig.buildingCode);
     const BUILDING_NAMES = { 1: 'MC', 2: 'ENT', 4: 'MV', 5: 'SG' };
 
     // Manage "Здание" column header
@@ -270,7 +300,11 @@ class App {
     const buildingsInList = new Set();
 
     const filtered = this.items.filter(item => {
-      if (!isAll && !this.itemBelongsToBuilding(item)) return false;
+      if (!isAll && !isStorage && !this.itemBelongsToBuilding(item)) return false;
+      if (isStorage && buildingConfig.buildingCode) {
+        const itemCode = item.room_code || this.roomIdToCode[item.room_id] || '';
+        if (!itemCode.toUpperCase().startsWith(buildingConfig.buildingCode.toUpperCase())) return false;
+      }
       const norm = this.normalizeItemFields(item);
       const code = item.room_code || this.roomIdToCode[item.room_id] || '';
       const filterCat = (this.filters.category && String(this.filters.category).trim()) || '';
@@ -402,6 +436,47 @@ class App {
     }
 
     if (isAll) this.updateStats(filtered.length, roomsInList.size);
+
+    // Render category chips for storage view
+    const chipsEl = document.getElementById('category-chips');
+    if (chipsEl) {
+      if (isStorage && buildingConfig.buildingCode) {
+        // Count all storage items per category (unfiltered, to show totals)
+        const catCounts = {};
+        let storageTotal = 0;
+        this.items.forEach(item => {
+          const itemCode = item.room_code || this.roomIdToCode[item.room_id] || '';
+          if (!itemCode.toUpperCase().startsWith(buildingConfig.buildingCode.toUpperCase())) return;
+          const norm = this.normalizeItemFields(item);
+          catCounts[norm.category] = (catCounts[norm.category] || 0) + 1;
+          storageTotal++;
+        });
+
+        const activeCat = this.filters.category || '';
+        let html = '<button class="chip' + (!activeCat ? ' active' : '') + '" data-cat="">Все (' + storageTotal + ')</button>';
+        Object.entries(catCounts).sort((a, b) => b[1] - a[1]).forEach(([cat, count]) => {
+          const color = (CONFIG.CATEGORY_COLORS && CONFIG.CATEGORY_COLORS[cat]) || '#999';
+          const icon = (CONFIG.CATEGORY_ICONS && CONFIG.CATEGORY_ICONS[cat]) || '';
+          html += '<button class="chip' + (activeCat === cat ? ' active' : '') +
+            '" data-cat="' + cat + '" style="border-color:' + color + ';--chip-color:' + color + '">' +
+            icon + ' ' + cat + ' (' + count + ')</button>';
+        });
+        chipsEl.innerHTML = html;
+        chipsEl.style.display = '';
+
+        chipsEl.querySelectorAll('.chip').forEach(btn => {
+          btn.addEventListener('click', () => {
+            this.filters.category = btn.dataset.cat;
+            const catSelect = document.getElementById('filter-category');
+            if (catSelect) catSelect.value = this.filters.category;
+            this.applyFilters();
+          });
+        });
+      } else {
+        chipsEl.style.display = 'none';
+        chipsEl.innerHTML = '';
+      }
+    }
   }
 
   /** Wire up click events for building tab buttons. */
@@ -511,8 +586,12 @@ class App {
   }
 
   applyFilters() {
-    // 'all' tab: skip map operations entirely, just render list
-    if (this.activeBuilding === 'all') {
+    const _activeBuildingConfig = (CONFIG.BUILDINGS || {})[this.activeBuilding] || {};
+    const _isStorageTab = CONFIG.STORAGE_BUILDING_IDS &&
+      CONFIG.STORAGE_BUILDING_IDS.includes(_activeBuildingConfig.buildingCode);
+
+    // 'all' tab and storage tabs: skip map operations entirely, just render list
+    if (this.activeBuilding === 'all' || _isStorageTab) {
       if (this.viewMode === 'list') this.renderListView();
       return;
     }

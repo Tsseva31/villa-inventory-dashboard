@@ -501,6 +501,37 @@ body {
   font-size: 13px;
   color: #aaa;
 }
+
+/* Category filter chips (storage view) */
+.category-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.6rem 0 0.4rem;
+}
+.chip {
+  background: transparent;
+  color: #ddd;
+  border: 1.5px solid #555;
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.chip:hover {
+  background: rgba(255,255,255,0.08);
+}
+.chip.active {
+  background: var(--chip-color, #555);
+  border-color: var(--chip-color, #555);
+  color: #fff;
+  font-weight: 600;
+}
+.chip[data-cat=""].active {
+  background: #555;
+  border-color: #aaa;
+}
 .list-table-wrapper {
   overflow: auto;
   flex: 1;
