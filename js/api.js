@@ -69,16 +69,6 @@ class API {
 
       window._apiUnavailable = false;
 
-      // D2.3: диагностика фото — для каждого item логируем поля с фото
-      if (data.items && Array.isArray(data.items)) {
-        data.items.forEach((item) => {
-          const photoField = item.photos !== undefined ? item.photos : item.photo_1;
-          const type = typeof photoField;
-          const len = type === 'string' ? photoField.length : (Array.isArray(photoField) ? photoField.length : '—');
-          console.log('[Photo debug] item.id:', item.id, '| photos/photo_1:', photoField, '| typeof:', type, '| length:', len);
-        });
-      }
-
       return data;
     } catch (e) {
       console.error('API error:', e);
