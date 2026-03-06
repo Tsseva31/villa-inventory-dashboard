@@ -865,7 +865,7 @@ class App {
       unknown: '❓ Unknown'
     };
     const categoryBadge = document.createElement('div');
-    categoryBadge.className = 'category-badge';
+    categoryBadge.className = 'item-category';
     categoryBadge.style.cssText = 'background-color:' + categoryColor + ';color:white;padding:4px 12px;border-radius:4px;font-size:12px;font-weight:bold;display:inline-block;margin-bottom:8px;';
     categoryBadge.textContent = CATEGORY_LABELS[actualCategory] || actualCategory;
 
