@@ -17,8 +17,9 @@ class App {
     this.items = [];
     this.roomsCoords = {};
     this.roomIdToCode = {};
+    this.roomIdToZoneId = {};
 
-    this.activeBuilding = (CONFIG.DEFAULT_BUILDING) || 'mc-1f';
+    this.activeBuilding = (CONFIG.DEFAULT_BUILDING) || 'mc';
 
     this.viewMode = 'map';
 
@@ -38,22 +39,27 @@ class App {
 
     const building = this._getBuilding(this.activeBuilding);
 
-    // Set floor plan image and dimensions before loading rooms
+    // Set floor plan image before loading data
     const floorPlanEl = document.getElementById('floor-plan');
-    if (floorPlanEl && building.floorPlan) floorPlanEl.src = building.floorPlan;
-
-    this.map.setFloorPlanDimensions(building.width, building.height);
-
-    this.roomsCoords = await this._fetchRooms(building.roomsFile);
-
-    this.map.setRooms(this.roomsCoords);
+    if (floorPlanEl && building.hasFloorPlan && building.floorPlan) {
+      floorPlanEl.src = building.floorPlan;
+    }
 
     await this.loadData();
-    await this.waitForFloorPlanImage();
+    this.rebuildRoomsCoordsFromApi();
+    this.map.setRooms(this.roomsCoords);
+
+    if (building.hasFloorPlan && building.floorPlan) {
+      await this.waitForFloorPlanImage();
+      this.syncFloorPlanDimensionsFromImage();
+    } else {
+      this.map.setFloorPlanDimensions(1, 1);
+    }
 
     this.setupFilters();
     this.setupSidebar();
     this.setupModal();
+    this.setupLightbox();
     this.setupBuildingTabs();
     this.setupViewToggle();
     this.setupRoomFilter();
@@ -62,36 +68,16 @@ class App {
     this.applyFilters();
   }
 
-  /** Returns building config for a given key; falls back to mc-1f. */
+  /** Returns building config for a given key; falls back to default building. */
   _getBuilding(key) {
     const buildings = (CONFIG.BUILDINGS) || {};
-    return buildings[key] || buildings['mc-1f'] || {
-      label: key,
-      floorPlan: CONFIG.FLOOR_PLAN || 'assets/floor-plan-mc.png',
-      width: CONFIG.FLOOR_PLAN_WIDTH || 1545,
-      height: CONFIG.FLOOR_PLAN_HEIGHT || 763,
-      roomsFile: 'data/rooms-mc-1f.json',
-      buildingId: 1
-    };
-  }
-
-  /** Fetch rooms JSON; returns {} on error (e.g. empty stubs for new buildings). */
-  async _fetchRooms(roomsFile) {
-    try {
-      // Добавляем timestamp, чтобы браузер всегда качал свежий JSON
-      const res = await fetch(roomsFile + '?nocache=' + Date.now());
-      if (!res.ok) return {};
-      return await res.json();
-    } catch (e) {
-      console.warn('[App] Could not load', roomsFile, e);
-      return {};
-    }
+    var defaultKey = CONFIG.DEFAULT_BUILDING || 'mc';
+    return buildings[key] || CONFIG.BUILDINGS[defaultKey];
   }
 
   /**
-   * Returns true when the item belongs to the currently active building/floor.
-   * For MC 1F and MC 2F (both building_id=1) we also check that the room_code
-   * is present in the active roomsCoords — this splits the two floors cleanly.
+   * Returns true when item belongs to the active building tab.
+   * Tabs can additionally filter by zone_id via buildingConfig.zoneFilter.
    */
   itemBelongsToBuilding(item) {
     const building = this._getBuilding(this.activeBuilding);
@@ -99,37 +85,140 @@ class App {
       ? parseInt(item.building_id, 10)
       : null;
 
-    // If API did not return building_id at all — show everything (mock data / legacy)
+    // If API did not return building_id at all, keep backward-compatible behavior.
     if (itemBuildingId === null || isNaN(itemBuildingId)) return true;
 
     if (itemBuildingId !== building.buildingId) return false;
 
-    // For buildings that have multiple floor tabs (same buildingId), discriminate by room_code.
-    // This handles MC, MV (1f/2f) and SG (lower/upper) — any buildingId shared by 2+ tabs.
-    const allBuildings = Object.values((CONFIG.BUILDINGS) || {});
-    const floorsForId = allBuildings.filter(b => b.buildingId === building.buildingId);
-    if (floorsForId.length > 1) {
-      const code = item.room_code || this.roomIdToCode[item.room_id];
-      if (!code) return false;
-      return Object.prototype.hasOwnProperty.call(this.roomsCoords, code);
+    if (building.zoneFilter !== null && building.zoneFilter !== undefined) {
+      const itemZone = item.zone_id !== undefined && item.zone_id !== null && item.zone_id !== ''
+        ? parseInt(item.zone_id, 10)
+        : parseInt(this.roomIdToZoneId[item.room_id], 10);
+      if (isNaN(itemZone) || itemZone !== building.zoneFilter) return false;
     }
 
     return true;
   }
 
-  /** Switch active building tab: load new rooms, update floor plan, rerender. */
+  /** Build map room coords from API rooms for current building/zone. */
+  rebuildRoomsCoordsFromApi() {
+    const building = this._getBuilding(this.activeBuilding);
+    if (!building || this.activeBuilding === 'all') {
+      this.roomsCoords = {};
+      return;
+    }
+
+    const roomsCoords = {};
+    this.rooms.forEach(room => {
+      const roomBuildingId = room.building_id !== undefined && room.building_id !== null && room.building_id !== ''
+        ? parseInt(room.building_id, 10)
+        : null;
+      if (roomBuildingId !== building.buildingId) return;
+      if (building.zoneFilter !== null && building.zoneFilter !== undefined) {
+        const roomZoneId = room.zone_id !== undefined && room.zone_id !== null && room.zone_id !== ''
+          ? parseInt(room.zone_id, 10)
+          : null;
+        if (roomZoneId !== building.zoneFilter) return;
+      }
+      if (!room.code || room.pin_x === null || room.pin_y === null || room.pin_x === undefined || room.pin_y === undefined) return;
+      roomsCoords[room.code] = {
+        name: room.name || room.code,
+        x: parseFloat(room.pin_x),
+        y: parseFloat(room.pin_y)
+      };
+    });
+
+    this.roomsCoords = roomsCoords;
+  }
+
+  syncFloorPlanDimensionsFromImage() {
+    const floorPlanEl = document.getElementById('floor-plan');
+    if (!floorPlanEl) return;
+    const width = floorPlanEl.naturalWidth || floorPlanEl.width || 1;
+    const height = floorPlanEl.naturalHeight || floorPlanEl.height || 1;
+    this.map.setFloorPlanDimensions(width, height);
+  }
+
+  /** Switch active building tab: update floor plan/list mode and rerender. */
   async switchBuilding(buildingKey) {
     if (buildingKey === this.activeBuilding) return;
 
     this.activeBuilding = buildingKey;
-    const building = this._getBuilding(buildingKey);
+    const mapBtn = document.querySelector('.view-btn[data-view="map"]');
+    const viewToggle = document.querySelector('.view-toggle');
+    const buildingConfig = this._getBuilding(buildingKey) || {};
+    const isStorage = CONFIG.STORAGE_BUILDING_IDS &&
+      CONFIG.STORAGE_BUILDING_IDS.includes(buildingConfig.buildingCode);
 
-    // Update floor plan image
-    const floorPlanEl = document.getElementById('floor-plan');
-    if (floorPlanEl) floorPlanEl.src = building.floorPlan;
+    if (buildingKey === 'all') {
+      // Force list view and disable map button
+      if (this.viewMode !== 'list') {
+        this.viewMode = 'list';
+        document.querySelectorAll('.view-btn').forEach(b =>
+          b.classList.toggle('active', b.dataset.view === 'list'));
+        document.querySelector('.map-container').classList.add('hidden');
+        document.getElementById('list-container').classList.remove('hidden');
+      }
+      if (mapBtn) {
+        mapBtn.disabled = true;
+        mapBtn.title = 'Карта недоступна в режиме "Все"';
+      }
+      if (viewToggle) viewToggle.style.display = '';
+    } else if (isStorage) {
+      // Storage: force list view, hide the map/list toggle entirely
+      this.viewMode = 'list';
+      document.querySelectorAll('.view-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.view === 'list'));
+      document.querySelector('.map-container').classList.add('hidden');
+      document.getElementById('list-container').classList.remove('hidden');
+      if (mapBtn) mapBtn.disabled = true;
+      if (mapBtn) mapBtn.title = 'Карта недоступна для склада';
+      if (viewToggle) viewToggle.style.display = 'none';
+      this.roomsCoords = {};
+    } else {
+      // Regular building: re-enable toggle
+      const wasForced = mapBtn && mapBtn.disabled;
+      if (mapBtn) {
+        mapBtn.disabled = false;
+        mapBtn.title = 'Карта';
+      }
+      if (viewToggle) viewToggle.style.display = '';
 
-    // Load room coords for this building
-    this.roomsCoords = await this._fetchRooms(building.roomsFile);
+      const noFloorPlan = buildingConfig.hasFloorPlan === false || !buildingConfig.floorPlan;
+
+      // If no floor plan yet, force list mode and disable map button
+      if (noFloorPlan) {
+        this.viewMode = 'list';
+        document.querySelectorAll('.view-btn').forEach(b =>
+          b.classList.toggle('active', b.dataset.view === 'list'));
+        document.querySelector('.map-container').classList.add('hidden');
+        document.getElementById('list-container').classList.remove('hidden');
+        if (mapBtn) {
+          mapBtn.disabled = true;
+          mapBtn.title = 'План помещений в подготовке';
+        }
+        this.updateStats(0, 0);
+        this.showError('План помещений в подготовке');
+        this.map.setRooms({});
+        this.roomsCoords = {};
+      } else if (wasForced) {
+        // Restore map view after forced-list mode (all/storage/no-floor-plan)
+        this.viewMode = 'map';
+        document.querySelectorAll('.view-btn').forEach(b =>
+          b.classList.toggle('active', b.dataset.view === 'map'));
+        document.querySelector('.map-container').classList.remove('hidden');
+        document.getElementById('list-container').classList.add('hidden');
+      }
+
+      if (!noFloorPlan) {
+        const floorPlanEl = document.getElementById('floor-plan');
+        if (floorPlanEl && buildingConfig.floorPlan) floorPlanEl.src = buildingConfig.floorPlan;
+        await this.waitForFloorPlanImage();
+        this.syncFloorPlanDimensionsFromImage();
+        this.rebuildRoomsCoordsFromApi();
+        this.map.setRooms(this.roomsCoords);
+      }
+    }
 
     // Reset room filter for new building
     this.filters.room = '';
@@ -137,19 +226,15 @@ class App {
     if (roomSelect) roomSelect.value = '';
     this.updateRoomFilterOptions();
 
-    // Update map
-    this.map.setFloorPlanDimensions(building.width, building.height);
-    this.map.setRooms(this.roomsCoords);
-
     // Close sidebar
     document.getElementById('sidebar').classList.add('hidden');
 
     // Update tab highlight
-    document.querySelectorAll('#building-tabs .tab').forEach(btn => {
+    document.querySelectorAll('#building-tabs .tab-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.building === buildingKey);
     });
 
-    // Rerender pins with filtered data
+    // Rerender
     this.applyFilters();
   }
 
@@ -157,6 +242,7 @@ class App {
   setupViewToggle() {
     document.querySelectorAll('.view-btn').forEach(btn => {
       btn.addEventListener('click', () => {
+        if (btn.disabled) return;
         const view = btn.dataset.view;
         if (view === this.viewMode) return;
         this.viewMode = view;
@@ -187,21 +273,34 @@ class App {
     });
   }
 
-  /** Repopulate room filter options from current building's roomsCoords. */
+  /** Repopulate room filter options from current building's roomsCoords (or all rooms for 'all' tab). */
   updateRoomFilterOptions() {
     const roomSelect = document.getElementById('filter-room');
     if (!roomSelect) return;
     const currentVal = roomSelect.value;
     roomSelect.innerHTML = '<option value="">Все комнаты</option>';
-    Object.keys(this.roomsCoords).sort().forEach(code => {
-      const name = this.roomsCoords[code] && this.roomsCoords[code].name
-        ? this.roomsCoords[code].name : '';
-      const opt = document.createElement('option');
-      opt.value = code;
-      opt.textContent = code + (name ? ' — ' + name : '');
-      if (code === currentVal) opt.selected = true;
-      roomSelect.appendChild(opt);
-    });
+
+    if (this.activeBuilding === 'all') {
+      // All rooms from API, sorted by code
+      [...this.rooms].filter(r => r.code).sort((a, b) =>
+        (a.code || '').localeCompare(b.code || '')).forEach(room => {
+        const opt = document.createElement('option');
+        opt.value = room.code;
+        opt.textContent = room.code + (room.name ? ' — ' + room.name : '');
+        if (room.code === currentVal) opt.selected = true;
+        roomSelect.appendChild(opt);
+      });
+    } else {
+      Object.keys(this.roomsCoords).sort().forEach(code => {
+        const name = this.roomsCoords[code] && this.roomsCoords[code].name
+          ? this.roomsCoords[code].name : '';
+        const opt = document.createElement('option');
+        opt.value = code;
+        opt.textContent = code + (name ? ' — ' + name : '');
+        if (code === currentVal) opt.selected = true;
+        roomSelect.appendChild(opt);
+      });
+    }
   }
 
   /** Render the list view table for the current building + active filters. */
@@ -210,10 +309,42 @@ class App {
     if (!tbody) return;
     tbody.innerHTML = '';
 
+    const isAll = this.activeBuilding === 'all';
+    const buildingConfig = (CONFIG.BUILDINGS || {})[this.activeBuilding] || {};
+    const isStorage = !isAll && CONFIG.STORAGE_BUILDING_IDS &&
+      CONFIG.STORAGE_BUILDING_IDS.includes(buildingConfig.buildingCode);
+    const BUILDING_NAMES = CONFIG.BUILDING_NAMES || {};
+
+    // Manage "Здание" column header
+    const theadRow = document.querySelector('#inventory-table thead tr');
+    if (theadRow) {
+      const existingTh = theadRow.querySelector('.th-building');
+      if (isAll && !existingTh) {
+        const th = document.createElement('th');
+        th.className = 'th-building';
+        th.textContent = 'Здание';
+        theadRow.insertBefore(th, theadRow.firstChild);
+      } else if (!isAll && existingTh) {
+        existingTh.remove();
+      }
+    }
+
+    // Build room name lookup: code → name (API rooms + current roomsCoords)
+    const roomNameByCode = {};
+    this.rooms.forEach(r => { if (r.code) roomNameByCode[r.code] = r.name || ''; });
+    Object.entries(this.roomsCoords).forEach(([code, data]) => {
+      if (data && data.name) roomNameByCode[code] = data.name;
+    });
+
     const roomsInList = new Set();
+    const buildingsInList = new Set();
 
     const filtered = this.items.filter(item => {
-      if (!this.itemBelongsToBuilding(item)) return false;
+      if (!isAll && !isStorage && !this.itemBelongsToBuilding(item)) return false;
+      if (isStorage && buildingConfig.buildingCode) {
+        const itemCode = item.room_code || this.roomIdToCode[item.room_id] || '';
+        if (!itemCode.toUpperCase().startsWith(buildingConfig.buildingCode.toUpperCase())) return false;
+      }
       const norm = this.normalizeItemFields(item);
       const code = item.room_code || this.roomIdToCode[item.room_id] || '';
       const filterCat = (this.filters.category && String(this.filters.category).trim()) || '';
@@ -222,8 +353,7 @@ class App {
       if (this.filters.room && code !== this.filters.room) return false;
       if (this.filters.search) {
         const s = this.filters.search.toLowerCase();
-        const roomName = (this.roomsCoords[code] && this.roomsCoords[code].name
-          ? this.roomsCoords[code].name : '').toLowerCase();
+        const roomName = (roomNameByCode[code] || '').toLowerCase();
         if (!(item.description || '').toLowerCase().includes(s) &&
             !roomName.includes(s) && !code.toLowerCase().includes(s)) return false;
       }
@@ -231,6 +361,11 @@ class App {
     });
 
     filtered.sort((a, b) => {
+      if (isAll) {
+        const ba = parseInt(a.building_id, 10) || 0;
+        const bb = parseInt(b.building_id, 10) || 0;
+        if (ba !== bb) return ba - bb;
+      }
       const ca = (a.room_code || this.roomIdToCode[a.room_id] || '').toLowerCase();
       const cb = (b.room_code || this.roomIdToCode[b.room_id] || '').toLowerCase();
       if (ca !== cb) return ca.localeCompare(cb);
@@ -241,16 +376,26 @@ class App {
     filtered.forEach(item => {
       const norm = this.normalizeItemFields(item);
       const code = item.room_code || this.roomIdToCode[item.room_id] || '';
-      const coords = this.roomsCoords[code];
-      const roomName = coords && coords.name ? coords.name : '';
+      const roomName = roomNameByCode[code] || '';
       if (code) roomsInList.add(code);
+      if (isAll && item.building_id) buildingsInList.add(parseInt(item.building_id, 10));
 
       const tr = document.createElement('tr');
 
-      // Room
+      // Building (only in 'all' mode)
+      if (isAll) {
+        const tdBuilding = document.createElement('td');
+        const buildingId = parseInt(item.building_id, 10);
+        tdBuilding.textContent = BUILDING_NAMES[buildingId] || (item.building_name || ('ID:' + buildingId));
+        tdBuilding.style.cssText = 'font-weight:500;color:#aaa;white-space:nowrap';
+        tr.appendChild(tdBuilding);
+      }
+
+      // Room: [code] — [name], fallback to name only
       const tdRoom = document.createElement('td');
-      tdRoom.innerHTML = '<strong>' + (code || '—') + '</strong>' +
-        (roomName ? '<br><span class="list-room-name">' + roomName + '</span>' : '');
+      const roomLabel = code && roomName ? (code + ' — ' + roomName) : (code || roomName || '—');
+      tdRoom.innerHTML = '<strong>' + roomLabel + '</strong>';
+      tr.appendChild(tdRoom);
 
       // Category
       const tdCat = document.createElement('td');
@@ -259,24 +404,35 @@ class App {
       tdCat.innerHTML = '<span class="list-cat-badge" style="background:' + catColor +
         ';color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;white-space:nowrap">' +
         icon + ' ' + norm.category + '</span>';
+      tr.appendChild(tdCat);
 
       // Description
       const tdDesc = document.createElement('td');
       const desc = item.description || '—';
       tdDesc.textContent = desc.length > 80 ? desc.slice(0, 80) + '…' : desc;
       tdDesc.title = desc;
+      tr.appendChild(tdDesc);
 
       // Condition
       const tdCond = document.createElement('td');
       const condColor = (CONFIG.CONDITION_COLORS && CONFIG.CONDITION_COLORS[norm.condition]) || '#888';
-      tdCond.innerHTML = '<span class="list-cond-badge" style="background:' + condColor +
+      let condHtml = '<span class="list-cond-badge" style="background:' + condColor +
         ';color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;white-space:nowrap">' +
         (norm.condition || '—') + '</span>';
+      if (norm.repair_status) {
+        const rColors = { pending: '#F39C12', in_progress: '#E67E22', done: '#27AE60' };
+        const rColor = rColors[norm.repair_status] || '#F39C12';
+        condHtml += ' <span style="background:' + rColor +
+          ';color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;vertical-align:middle">🔧</span>';
+      }
+      tdCond.innerHTML = condHtml;
+      tr.appendChild(tdCond);
 
       // Quantity
       const tdQty = document.createElement('td');
       tdQty.textContent = norm.quantity;
       tdQty.style.textAlign = 'center';
+      tr.appendChild(tdQty);
 
       // Photos
       const tdPhoto = document.createElement('td');
@@ -284,18 +440,19 @@ class App {
         const u = typeof p === 'string' ? p : (p && p.url ? p.url : '');
         return u && u.startsWith('http');
       }) : [];
-      if (photos.length) {
+      const listPhotoUrls = photos.map(p => typeof p === 'string' ? p : p.url);
+      const nameplateUrl = (item.nameplate_photo && item.nameplate_photo.startsWith('http')) ? item.nameplate_photo : null;
+      if (nameplateUrl) listPhotoUrls.push(nameplateUrl);
+      if (listPhotoUrls.length) {
         const link = document.createElement('span');
         link.className = 'list-photo-link';
-        link.textContent = '📷 ' + photos.length;
-        link.addEventListener('click', () => {
-          const p = photos[0];
-          this.showPhoto(typeof p === 'string' ? p : p.url);
-        });
+        link.textContent = '📷 ' + listPhotoUrls.length;
+        link.addEventListener('click', () => this.openLightbox(listPhotoUrls, 0));
         tdPhoto.appendChild(link);
       } else {
         tdPhoto.textContent = '—';
       }
+      tr.appendChild(tdPhoto);
 
       // Date
       const tdDate = document.createElement('td');
@@ -306,15 +463,60 @@ class App {
       } else {
         tdDate.textContent = '—';
       }
+      tr.appendChild(tdDate);
 
-      [tdRoom, tdCat, tdDesc, tdCond, tdQty, tdPhoto, tdDate]
-        .forEach(td => tr.appendChild(td));
       tbody.appendChild(tr);
     });
 
     const listStats = document.getElementById('list-stats');
-    if (listStats) listStats.textContent =
-      'Показано: ' + filtered.length + ' предметов в ' + roomsInList.size + ' комнатах';
+    if (listStats) {
+      listStats.textContent = isAll
+        ? 'Показано: ' + filtered.length + ' предметов в ' + roomsInList.size + ' комнатах (' + buildingsInList.size + ' здания)'
+        : 'Показано: ' + filtered.length + ' предметов в ' + roomsInList.size + ' комнатах';
+    }
+
+    if (isAll) this.updateStats(filtered.length, roomsInList.size);
+
+    // Render category chips for storage view
+    const chipsEl = document.getElementById('category-chips');
+    if (chipsEl) {
+      if (isStorage && buildingConfig.buildingCode) {
+        // Count all storage items per category (unfiltered, to show totals)
+        const catCounts = {};
+        let storageTotal = 0;
+        this.items.forEach(item => {
+          const itemCode = item.room_code || this.roomIdToCode[item.room_id] || '';
+          if (!itemCode.toUpperCase().startsWith(buildingConfig.buildingCode.toUpperCase())) return;
+          const norm = this.normalizeItemFields(item);
+          catCounts[norm.category] = (catCounts[norm.category] || 0) + 1;
+          storageTotal++;
+        });
+
+        const activeCat = this.filters.category || '';
+        let html = '<button class="chip' + (!activeCat ? ' active' : '') + '" data-cat="">Все (' + storageTotal + ')</button>';
+        Object.entries(catCounts).sort((a, b) => b[1] - a[1]).forEach(([cat, count]) => {
+          const color = (CONFIG.CATEGORY_COLORS && CONFIG.CATEGORY_COLORS[cat]) || '#999';
+          const icon = (CONFIG.CATEGORY_ICONS && CONFIG.CATEGORY_ICONS[cat]) || '';
+          html += '<button class="chip' + (activeCat === cat ? ' active' : '') +
+            '" data-cat="' + cat + '" style="border-color:' + color + ';--chip-color:' + color + '">' +
+            icon + ' ' + cat + ' (' + count + ')</button>';
+        });
+        chipsEl.innerHTML = html;
+        chipsEl.style.display = '';
+
+        chipsEl.querySelectorAll('.chip').forEach(btn => {
+          btn.addEventListener('click', () => {
+            this.filters.category = btn.dataset.cat;
+            const catSelect = document.getElementById('filter-category');
+            if (catSelect) catSelect.value = this.filters.category;
+            this.applyFilters();
+          });
+        });
+      } else {
+        chipsEl.style.display = 'none';
+        chipsEl.innerHTML = '';
+      }
+    }
   }
 
   /** Wire up click events for building tab buttons. */
@@ -322,20 +524,21 @@ class App {
     const nav = document.getElementById('building-tabs');
     if (!nav) return;
     nav.addEventListener('click', (e) => {
-      const btn = e.target.closest('.tab');
+      const btn = e.target.closest('.tab-btn');
       if (!btn) return;
       const key = btn.dataset.building;
       if (key) this.switchBuilding(key);
     });
   
     // Подсветить активный таб при загрузке
-    document.querySelectorAll('#building-tabs .tab').forEach(btn => {
+    document.querySelectorAll('#building-tabs .tab-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.building === this.activeBuilding);
     });
   }
 
   async loadData() {
     this.showLoading();
+    window._apiUnavailable = false;
 
     try {
       this.rooms = await api.getRooms();
@@ -343,11 +546,15 @@ class App {
 
       this.rooms.forEach(room => {
         this.roomIdToCode[room.id] = room.code;
+        this.roomIdToZoneId[room.id] = room.zone_id;
       });
     } catch (e) {
       console.error('Data loading error:', e);
       this.showError('Failed to load data. Check API settings.');
     }
+
+    const banner = document.getElementById('api-warning');
+    if (banner) banner.style.display = window._apiUnavailable ? 'block' : 'none';
 
     this.hideLoading();
   }
@@ -368,14 +575,19 @@ class App {
     const quantity = parseInt(item.quantity, 10) || 1;
     let category = (item.category && String(item.category).trim()) || 'unknown';
     if (category === item.room_code || !category) category = 'unknown';
-    return { condition, quantity, category };
+    return {
+      condition, quantity, category,
+      serial_model: item.serial_model || '',
+      nameplate_photo: item.nameplate_photo || '',
+      repair_status: item.repair_status || '',
+    };
   }
 
   getItemsByRoom() {
     const byRoom = {};
 
     this.items.forEach(item => {
-      // Skip items that don't belong to the currently active building/floor
+      // Skip items that don't belong to the currently active building tab
       if (!this.itemBelongsToBuilding(item)) return;
 
       // Prefer room_code from API (column G) when it exists on map; fallback to room_id → code
@@ -415,6 +627,17 @@ class App {
   }
 
   applyFilters() {
+    const _activeBuildingConfig = (CONFIG.BUILDINGS || {})[this.activeBuilding] || {};
+    const _isStorageTab = CONFIG.STORAGE_BUILDING_IDS &&
+      CONFIG.STORAGE_BUILDING_IDS.includes(_activeBuildingConfig.buildingCode);
+    const _hasFloorPlan = !(_activeBuildingConfig.hasFloorPlan === false || !_activeBuildingConfig.floorPlan);
+
+    // 'all', storage and no-floor-plan tabs are list-only.
+    if (this.activeBuilding === 'all' || _isStorageTab || !_hasFloorPlan) {
+      if (this.viewMode === 'list') this.renderListView();
+      return;
+    }
+
     const itemsByRoom = this.getItemsByRoom();
     const roomsData = {};
     let totalItems = 0;
@@ -567,6 +790,59 @@ class App {
     });
   }
 
+  setupLightbox() {
+    document.getElementById('lightbox-close').addEventListener('click', () => this.closeLightbox());
+    document.getElementById('lightbox').addEventListener('click', (e) => {
+      if (e.target.id === 'lightbox') this.closeLightbox();
+    });
+    document.getElementById('lightbox-prev').addEventListener('click', () => this._lightboxNav(-1));
+    document.getElementById('lightbox-next').addEventListener('click', () => this._lightboxNav(1));
+
+    document.addEventListener('keydown', (e) => {
+      if (!document.getElementById('lightbox').classList.contains('lightbox-open')) return;
+      if (e.key === 'Escape') this.closeLightbox();
+      else if (e.key === 'ArrowLeft') this._lightboxNav(-1);
+      else if (e.key === 'ArrowRight') this._lightboxNav(1);
+    });
+  }
+
+  openLightbox(photos, index) {
+    this._lbPhotos = photos;
+    this._lbIndex = index;
+    this._lightboxUpdate();
+    document.getElementById('lightbox').classList.add('lightbox-open');
+  }
+
+  closeLightbox() {
+    document.getElementById('lightbox').classList.remove('lightbox-open');
+  }
+
+  _lightboxNav(dir) {
+    const len = this._lbPhotos.length;
+    this._lbIndex = (this._lbIndex + dir + len) % len;
+    this._lightboxUpdate();
+  }
+
+  _lightboxUpdate() {
+    const url = this._lbPhotos[this._lbIndex];
+    document.getElementById('lightbox-img').src = this._getFullPhotoUrl(url);
+    const total = this._lbPhotos.length;
+    document.getElementById('lightbox-counter').textContent = (this._lbIndex + 1) + ' / ' + total;
+    const prev = document.getElementById('lightbox-prev');
+    const next = document.getElementById('lightbox-next');
+    prev.classList.toggle('hidden', total <= 1);
+    next.classList.toggle('hidden', total <= 1);
+  }
+
+  _getFullPhotoUrl(url) {
+    if (!url || typeof url !== 'string') return '';
+    const normalized = convertDriveUrl(url);
+    if (!normalized) return url;
+    const match = normalized.match(/[?&]id=([a-zA-Z0-9_-]+)/) || normalized.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    const fileId = match ? match[1] : null;
+    return fileId ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1200' : normalized;
+  }
+
   showRoomDetails(code) {
     const sidebar = document.getElementById('sidebar');
     this.sidebar = sidebar;
@@ -631,7 +907,7 @@ class App {
       unknown: '❓ Unknown'
     };
     const categoryBadge = document.createElement('div');
-    categoryBadge.className = 'category-badge';
+    categoryBadge.className = 'item-category';
     categoryBadge.style.cssText = 'background-color:' + categoryColor + ';color:white;padding:4px 12px;border-radius:4px;font-size:12px;font-weight:bold;display:inline-block;margin-bottom:8px;';
     categoryBadge.textContent = CATEGORY_LABELS[actualCategory] || actualCategory;
 
@@ -669,18 +945,39 @@ class App {
     quantityEl.style.cssText = 'font-size:13px;color:#666;margin-bottom:8px;';
     quantityEl.innerHTML = '<strong>Qty:</strong> ' + actualQuantity;
 
+    // === РЕМОНТ (badge) ===
+    let repairEl = null;
+    if (norm.repair_status) {
+      repairEl = document.createElement('div');
+      repairEl.style.cssText = 'font-size:12px;font-weight:600;margin-top:4px;margin-bottom:6px;';
+      const badgeMap = {
+        pending:     { icon: '🔧', color: '#F39C12', label: 'Ремонт ожидает' },
+        in_progress: { icon: '🔧', color: '#E67E22', label: 'В ремонте' },
+        done:        { icon: '✅', color: '#27AE60', label: 'Ремонт завершён' },
+      };
+      const b = badgeMap[norm.repair_status] || { icon: '🔧', color: '#F39C12', label: norm.repair_status };
+      repairEl.innerHTML = `<span style="background:${b.color};color:#fff;padding:2px 8px;border-radius:4px">${b.icon} ${b.label}</span>`;
+    }
+
     // === ФОТО ===
     const itemPhotos = document.createElement('div');
     itemPhotos.className = 'item-photos';
     itemPhotos.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;';
 
-    const photos = (item.photos && Array.isArray(item.photos)) ? item.photos : [];
-    photos.forEach((photoUrl, index) => {
+    const rawPhotos = (item.photos && Array.isArray(item.photos)) ? item.photos : [];
+    const allPhotoUrls = [];
+    rawPhotos.forEach(photoUrl => {
       let urlStr = '';
       if (typeof photoUrl === 'string') urlStr = photoUrl;
       else if (photoUrl && typeof photoUrl === 'object' && photoUrl.url) urlStr = photoUrl.url;
       else if (photoUrl != null) urlStr = String(photoUrl);
-      if (!urlStr || !urlStr.startsWith('http')) return;
+      if (urlStr && urlStr.startsWith('http')) allPhotoUrls.push(urlStr);
+    });
+    if (norm.nameplate_photo && norm.nameplate_photo.startsWith('http')) {
+      allPhotoUrls.push(norm.nameplate_photo);
+    }
+
+    allPhotoUrls.forEach((urlStr, index) => {
       const img = document.createElement('img');
       const thumbnailUrl = this.getDriveThumbnail(urlStr);
       if (thumbnailUrl) {
@@ -693,7 +990,7 @@ class App {
           console.error('[createItemElement] Failed to load photo ' + index + ':', urlStr);
           img.style.display = 'none';
         };
-        img.onclick = () => this.showPhoto(urlStr);
+        img.onclick = () => this.openLightbox(allPhotoUrls, index);
         itemPhotos.appendChild(img);
       }
     });
@@ -704,6 +1001,7 @@ class App {
     itemEl.appendChild(descriptionEl);
     itemEl.appendChild(conditionEl);
     itemEl.appendChild(quantityEl);
+    if (repairEl) itemEl.appendChild(repairEl);
     itemEl.appendChild(itemPhotos);
 
     return itemEl;
