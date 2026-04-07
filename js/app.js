@@ -17,8 +17,9 @@ class App {
     this.items = [];
     this.roomsCoords = {};
     this.roomIdToCode = {};
+    this.roomIdToZoneId = {};
 
-    this.activeBuilding = (CONFIG.DEFAULT_BUILDING) || 'mc-1f';
+    this.activeBuilding = (CONFIG.DEFAULT_BUILDING) || 'mc';
 
     this.viewMode = 'map';
 
@@ -38,18 +39,22 @@ class App {
 
     const building = this._getBuilding(this.activeBuilding);
 
-    // Set floor plan image and dimensions before loading rooms
+    // Set floor plan image before loading data
     const floorPlanEl = document.getElementById('floor-plan');
-    if (floorPlanEl && building.floorPlan) floorPlanEl.src = building.floorPlan;
-
-    this.map.setFloorPlanDimensions(building.width, building.height);
-
-    this.roomsCoords = await this._fetchRooms(building.roomsFile);
-
-    this.map.setRooms(this.roomsCoords);
+    if (floorPlanEl && building.hasFloorPlan && building.floorPlan) {
+      floorPlanEl.src = building.floorPlan;
+    }
 
     await this.loadData();
-    await this.waitForFloorPlanImage();
+    this.rebuildRoomsCoordsFromApi();
+    this.map.setRooms(this.roomsCoords);
+
+    if (building.hasFloorPlan && building.floorPlan) {
+      await this.waitForFloorPlanImage();
+      this.syncFloorPlanDimensionsFromImage();
+    } else {
+      this.map.setFloorPlanDimensions(1, 1);
+    }
 
     this.setupFilters();
     this.setupSidebar();
@@ -63,37 +68,16 @@ class App {
     this.applyFilters();
   }
 
-  /** Returns building config for a given key; falls back to mc-1f. */
+  /** Returns building config for a given key; falls back to default building. */
   _getBuilding(key) {
     const buildings = (CONFIG.BUILDINGS) || {};
-    return buildings[key] || buildings['mc-1f'] || {
-      label: key,
-      floorPlan: CONFIG.FLOOR_PLAN || 'assets/floor-plan-mc.png',
-      width: CONFIG.FLOOR_PLAN_WIDTH || 1545,
-      height: CONFIG.FLOOR_PLAN_HEIGHT || 763,
-      roomsFile: 'data/rooms-mc-1f.json',
-      buildingId: 1
-    };
-  }
-
-  /** Fetch rooms JSON; returns {} on error (e.g. empty stubs for new buildings). */
-  async _fetchRooms(roomsFile) {
-    if (!roomsFile) return {};
-    try {
-      // Добавляем timestamp, чтобы браузер всегда качал свежий JSON
-      const res = await fetch(roomsFile + '?nocache=' + Date.now());
-      if (!res.ok) return {};
-      return await res.json();
-    } catch (e) {
-      console.warn('[App] Could not load', roomsFile, e);
-      return {};
-    }
+    var defaultKey = CONFIG.DEFAULT_BUILDING || 'mc';
+    return buildings[key] || CONFIG.BUILDINGS[defaultKey];
   }
 
   /**
-   * Returns true when the item belongs to the currently active building/floor.
-   * For MC 1F and MC 2F (both building_id=1) we also check that the room_code
-   * is present in the active roomsCoords — this splits the two floors cleanly.
+   * Returns true when item belongs to the active building tab.
+   * Tabs can additionally filter by zone_id via buildingConfig.zoneFilter.
    */
   itemBelongsToBuilding(item) {
     const building = this._getBuilding(this.activeBuilding);
@@ -101,32 +85,68 @@ class App {
       ? parseInt(item.building_id, 10)
       : null;
 
-    // If API did not return building_id at all — show everything (mock data / legacy)
+    // If API did not return building_id at all, keep backward-compatible behavior.
     if (itemBuildingId === null || isNaN(itemBuildingId)) return true;
 
     if (itemBuildingId !== building.buildingId) return false;
 
-    // For buildings that have multiple floor tabs (same buildingId), discriminate by room_code.
-    // This handles MC, MV (1f/2f) and SG (lower/upper) — any buildingId shared by 2+ tabs.
-    const allBuildings = Object.values((CONFIG.BUILDINGS) || {});
-    const floorsForId = allBuildings.filter(b => b.buildingId === building.buildingId);
-    if (floorsForId.length > 1) {
-      const code = item.room_code || this.roomIdToCode[item.room_id];
-      if (!code) return false;
-      return Object.prototype.hasOwnProperty.call(this.roomsCoords, code);
+    if (building.zoneFilter !== null && building.zoneFilter !== undefined) {
+      const itemZone = item.zone_id !== undefined && item.zone_id !== null && item.zone_id !== ''
+        ? parseInt(item.zone_id, 10)
+        : parseInt(this.roomIdToZoneId[item.room_id], 10);
+      if (isNaN(itemZone) || itemZone !== building.zoneFilter) return false;
     }
 
     return true;
   }
 
-  /** Switch active building tab: load new rooms, update floor plan, rerender. */
+  /** Build map room coords from API rooms for current building/zone. */
+  rebuildRoomsCoordsFromApi() {
+    const building = this._getBuilding(this.activeBuilding);
+    if (!building || this.activeBuilding === 'all') {
+      this.roomsCoords = {};
+      return;
+    }
+
+    const roomsCoords = {};
+    this.rooms.forEach(room => {
+      const roomBuildingId = room.building_id !== undefined && room.building_id !== null && room.building_id !== ''
+        ? parseInt(room.building_id, 10)
+        : null;
+      if (roomBuildingId !== building.buildingId) return;
+      if (building.zoneFilter !== null && building.zoneFilter !== undefined) {
+        const roomZoneId = room.zone_id !== undefined && room.zone_id !== null && room.zone_id !== ''
+          ? parseInt(room.zone_id, 10)
+          : null;
+        if (roomZoneId !== building.zoneFilter) return;
+      }
+      if (!room.code || room.pin_x === null || room.pin_y === null || room.pin_x === undefined || room.pin_y === undefined) return;
+      roomsCoords[room.code] = {
+        name: room.name || room.code,
+        x: parseFloat(room.pin_x),
+        y: parseFloat(room.pin_y)
+      };
+    });
+
+    this.roomsCoords = roomsCoords;
+  }
+
+  syncFloorPlanDimensionsFromImage() {
+    const floorPlanEl = document.getElementById('floor-plan');
+    if (!floorPlanEl) return;
+    const width = floorPlanEl.naturalWidth || floorPlanEl.width || 1;
+    const height = floorPlanEl.naturalHeight || floorPlanEl.height || 1;
+    this.map.setFloorPlanDimensions(width, height);
+  }
+
+  /** Switch active building tab: update floor plan/list mode and rerender. */
   async switchBuilding(buildingKey) {
     if (buildingKey === this.activeBuilding) return;
 
     this.activeBuilding = buildingKey;
     const mapBtn = document.querySelector('.view-btn[data-view="map"]');
     const viewToggle = document.querySelector('.view-toggle');
-    const buildingConfig = (CONFIG.BUILDINGS || {})[buildingKey] || {};
+    const buildingConfig = this._getBuilding(buildingKey) || {};
     const isStorage = CONFIG.STORAGE_BUILDING_IDS &&
       CONFIG.STORAGE_BUILDING_IDS.includes(buildingConfig.buildingCode);
 
@@ -139,7 +159,10 @@ class App {
         document.querySelector('.map-container').classList.add('hidden');
         document.getElementById('list-container').classList.remove('hidden');
       }
-      if (mapBtn) mapBtn.disabled = true;
+      if (mapBtn) {
+        mapBtn.disabled = true;
+        mapBtn.title = 'Карта недоступна в режиме "Все"';
+      }
       if (viewToggle) viewToggle.style.display = '';
     } else if (isStorage) {
       // Storage: force list view, hide the map/list toggle entirely
@@ -149,16 +172,37 @@ class App {
       document.querySelector('.map-container').classList.add('hidden');
       document.getElementById('list-container').classList.remove('hidden');
       if (mapBtn) mapBtn.disabled = true;
+      if (mapBtn) mapBtn.title = 'Карта недоступна для склада';
       if (viewToggle) viewToggle.style.display = 'none';
       this.roomsCoords = {};
     } else {
       // Regular building: re-enable toggle
       const wasForced = mapBtn && mapBtn.disabled;
-      if (mapBtn) mapBtn.disabled = false;
+      if (mapBtn) {
+        mapBtn.disabled = false;
+        mapBtn.title = 'Карта';
+      }
       if (viewToggle) viewToggle.style.display = '';
 
-      // If we were in a forced-list mode (storage/all), restore map view
-      if (wasForced) {
+      const noFloorPlan = buildingConfig.hasFloorPlan === false || !buildingConfig.floorPlan;
+
+      // If no floor plan yet, force list mode and disable map button
+      if (noFloorPlan) {
+        this.viewMode = 'list';
+        document.querySelectorAll('.view-btn').forEach(b =>
+          b.classList.toggle('active', b.dataset.view === 'list'));
+        document.querySelector('.map-container').classList.add('hidden');
+        document.getElementById('list-container').classList.remove('hidden');
+        if (mapBtn) {
+          mapBtn.disabled = true;
+          mapBtn.title = 'План помещений в подготовке';
+        }
+        this.updateStats(0, 0);
+        this.showError('План помещений в подготовке');
+        this.map.setRooms({});
+        this.roomsCoords = {};
+      } else if (wasForced) {
+        // Restore map view after forced-list mode (all/storage/no-floor-plan)
         this.viewMode = 'map';
         document.querySelectorAll('.view-btn').forEach(b =>
           b.classList.toggle('active', b.dataset.view === 'map'));
@@ -166,18 +210,14 @@ class App {
         document.getElementById('list-container').classList.add('hidden');
       }
 
-      const building = this._getBuilding(buildingKey);
-
-      // Update floor plan image
-      const floorPlanEl = document.getElementById('floor-plan');
-      if (floorPlanEl) floorPlanEl.src = building.floorPlan;
-
-      // Load room coords for this building
-      this.roomsCoords = await this._fetchRooms(building.roomsFile);
-
-      // Update map
-      this.map.setFloorPlanDimensions(building.width, building.height);
-      this.map.setRooms(this.roomsCoords);
+      if (!noFloorPlan) {
+        const floorPlanEl = document.getElementById('floor-plan');
+        if (floorPlanEl && buildingConfig.floorPlan) floorPlanEl.src = buildingConfig.floorPlan;
+        await this.waitForFloorPlanImage();
+        this.syncFloorPlanDimensionsFromImage();
+        this.rebuildRoomsCoordsFromApi();
+        this.map.setRooms(this.roomsCoords);
+      }
     }
 
     // Reset room filter for new building
@@ -190,7 +230,7 @@ class App {
     document.getElementById('sidebar').classList.add('hidden');
 
     // Update tab highlight
-    document.querySelectorAll('#building-tabs .tab').forEach(btn => {
+    document.querySelectorAll('#building-tabs .tab-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.building === buildingKey);
     });
 
@@ -273,7 +313,7 @@ class App {
     const buildingConfig = (CONFIG.BUILDINGS || {})[this.activeBuilding] || {};
     const isStorage = !isAll && CONFIG.STORAGE_BUILDING_IDS &&
       CONFIG.STORAGE_BUILDING_IDS.includes(buildingConfig.buildingCode);
-    const BUILDING_NAMES = { 1: 'MC', 2: 'ENT', 4: 'MV', 5: 'SG' };
+    const BUILDING_NAMES = CONFIG.BUILDING_NAMES || {};
 
     // Manage "Здание" column header
     const theadRow = document.querySelector('#inventory-table thead tr');
@@ -351,10 +391,10 @@ class App {
         tr.appendChild(tdBuilding);
       }
 
-      // Room
+      // Room: [code] — [name], fallback to name only
       const tdRoom = document.createElement('td');
-      tdRoom.innerHTML = '<strong>' + (code || '—') + '</strong>' +
-        (roomName ? '<br><span class="list-room-name">' + roomName + '</span>' : '');
+      const roomLabel = code && roomName ? (code + ' — ' + roomName) : (code || roomName || '—');
+      tdRoom.innerHTML = '<strong>' + roomLabel + '</strong>';
       tr.appendChild(tdRoom);
 
       // Category
@@ -484,14 +524,14 @@ class App {
     const nav = document.getElementById('building-tabs');
     if (!nav) return;
     nav.addEventListener('click', (e) => {
-      const btn = e.target.closest('.tab');
+      const btn = e.target.closest('.tab-btn');
       if (!btn) return;
       const key = btn.dataset.building;
       if (key) this.switchBuilding(key);
     });
   
     // Подсветить активный таб при загрузке
-    document.querySelectorAll('#building-tabs .tab').forEach(btn => {
+    document.querySelectorAll('#building-tabs .tab-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.building === this.activeBuilding);
     });
   }
@@ -506,6 +546,7 @@ class App {
 
       this.rooms.forEach(room => {
         this.roomIdToCode[room.id] = room.code;
+        this.roomIdToZoneId[room.id] = room.zone_id;
       });
     } catch (e) {
       console.error('Data loading error:', e);
@@ -546,7 +587,7 @@ class App {
     const byRoom = {};
 
     this.items.forEach(item => {
-      // Skip items that don't belong to the currently active building/floor
+      // Skip items that don't belong to the currently active building tab
       if (!this.itemBelongsToBuilding(item)) return;
 
       // Prefer room_code from API (column G) when it exists on map; fallback to room_id → code
@@ -589,9 +630,10 @@ class App {
     const _activeBuildingConfig = (CONFIG.BUILDINGS || {})[this.activeBuilding] || {};
     const _isStorageTab = CONFIG.STORAGE_BUILDING_IDS &&
       CONFIG.STORAGE_BUILDING_IDS.includes(_activeBuildingConfig.buildingCode);
+    const _hasFloorPlan = !(_activeBuildingConfig.hasFloorPlan === false || !_activeBuildingConfig.floorPlan);
 
-    // 'all' tab and storage tabs: skip map operations entirely, just render list
-    if (this.activeBuilding === 'all' || _isStorageTab) {
+    // 'all', storage and no-floor-plan tabs are list-only.
+    if (this.activeBuilding === 'all' || _isStorageTab || !_hasFloorPlan) {
       if (this.viewMode === 'list') this.renderListView();
       return;
     }

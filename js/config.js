@@ -6,72 +6,101 @@ const CONFIG = {
   API_URL: window.VILLA_API_URL || 'https://script.google.com/macros/s/AKfycby3umURdLRrfJuKEkZfSGP6MH4gb1SjgRaJEeWCgm_TDQpEZTUWh3syHzutWZezhW1h/exec',
 
   // Buildings / floor tabs
-  DEFAULT_BUILDING: 'mc-1f',
+  DEFAULT_BUILDING: 'mc',
   BUILDINGS: {
-    'mc-1f': {
+    'mc': {
+      buildingId: 1,
       label: 'MC',
+      fullName: 'Главный комплекс',
       floorPlan: 'assets/floor-plan-mc-1f.png',
-      width: 2000,
-      height: 1000,
-      roomsFile: 'data/rooms-mc-1f.json',
-      buildingId: 1
+      hasFloorPlan: true,
+      zoneFilter: null
     },
-    'mv-1f': {
-      label: 'MV — Spa & Gym',
+    'mv-living': {
+      buildingId: 2,
+      label: 'MV Жилая',
+      fullName: 'Главная вилла — Жилая зона',
       floorPlan: 'assets/floor-plan-mv-1f.png',
-      width: 2382,
-      height: 1684,
-      roomsFile: 'data/rooms-mv-1f.json',
-      buildingId: 4
+      hasFloorPlan: true,
+      zoneFilter: 201
     },
-    'mv-2f': {
-      label: 'MV — Master Suite',
+    'mv-spa': {
+      buildingId: 2,
+      label: 'MV Спа',
+      fullName: 'Главная вилла — Спа и фитнес',
       floorPlan: 'assets/floor-plan-mv-2f.png',
-      width: 2382,
-      height: 1684,
-      roomsFile: 'data/rooms-mv-2f.json',
-      buildingId: 4
+      hasFloorPlan: true,
+      zoneFilter: 202
     },
     'sg-lower': {
-      label: 'SG — Lower',
+      buildingId: 3,
+      label: 'SG Нижний',
+      fullName: 'Гостевая вилла с видом на море — Нижний уровень',
       floorPlan: 'assets/floor-plan-sg-lower.png',
-      width: 1238,
-      height: 1242,
-      roomsFile: 'data/rooms-sg-lower.json',
-      buildingId: 5
+      hasFloorPlan: true,
+      zoneFilter: 301
     },
     'sg-upper': {
-      label: 'SG — Upper',
+      buildingId: 3,
+      label: 'SG Верхний',
+      fullName: 'Гостевая вилла с видом на море — Верхний уровень',
       floorPlan: 'assets/floor-plan-sg-upper.png',
-      width: 1218,
-      height: 1238,
-      roomsFile: 'data/rooms-sg-upper.json',
-      buildingId: 5
+      hasFloorPlan: true,
+      zoneFilter: 302
+    },
+    'ga1': {
+      buildingId: 4,
+      label: 'GA1',
+      fullName: 'Гостевая вилла 9.1',
+      floorPlan: null,
+      hasFloorPlan: false,
+      zoneFilter: null
+    },
+    'ga2': {
+      buildingId: 5,
+      label: 'GA2',
+      fullName: 'Гостевая вилла 9.2',
+      floorPlan: null,
+      hasFloorPlan: false,
+      zoneFilter: null
     },
     'ent': {
-      label: 'Entertainment',
+      buildingId: 6,
+      label: 'ENT',
+      fullName: 'Развлекательный блок',
       floorPlan: 'assets/floor-plan-ent.png',
-      width: 1739,
-      height: 1189,
-      roomsFile: 'data/rooms-ent.json',
-      buildingId: 2
+      hasFloorPlan: true,
+      zoneFilter: null
+    },
+    'staff': {
+      buildingId: 7,
+      label: 'Staff',
+      fullName: 'Корпус персонала',
+      floorPlan: null,
+      hasFloorPlan: false,
+      zoneFilter: null
+    },
+    'site': {
+      buildingId: 8,
+      label: 'Site',
+      fullName: 'Территория и инфраструктура',
+      floorPlan: null,
+      hasFloorPlan: false,
+      zoneFilter: null
     },
     'str': {
-      label: '📦 Storage',
-      floorPlan: null,      // storage — no floor plan
-      roomsFile: null,      // rooms loaded from API, not local JSON
-      buildingCode: 'STR',
-      buildingId: null      // fill in after adding STR row to Здания sheet (Task 1)
+      buildingId: 9,
+      label: 'Склад',
+      fullName: 'Склад расходников',
+      floorPlan: null,
+      hasFloorPlan: false,
+      zoneFilter: null,
+      listOnly: true
     }
   },
 
   // Building codes that are storage-type: no floor plan, always list view
   STORAGE_BUILDING_IDS: ['STR'],
-
-  // Floor plan (legacy — kept for backwards compat; map.js uses BUILDINGS when available)
-  FLOOR_PLAN: 'assets/floor-plan-mc-1f.png',
-  FLOOR_PLAN_WIDTH: 2000,
-  FLOOR_PLAN_HEIGHT: 1000,
 
   // Pin sizes — увеличить для лучшей видимости
   PIN_SIZE: 22,        // было 20
@@ -153,3 +182,9 @@ const CONFIG = {
     unknown: '❓'
   }
 };
+
+CONFIG.BUILDING_NAMES = {};
+Object.keys(CONFIG.BUILDINGS).forEach(function(key) {
+  var b = CONFIG.BUILDINGS[key];
+  CONFIG.BUILDING_NAMES[b.buildingId] = CONFIG.BUILDING_NAMES[b.buildingId] || b.label;
+});
