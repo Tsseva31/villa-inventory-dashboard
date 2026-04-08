@@ -74,10 +74,11 @@ body {
 .map-container {
   flex: 1;
   position: relative;
-  overflow: auto;
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
+  align-items: center;
   padding: 1rem;
 }
 
@@ -93,18 +94,19 @@ body {
 
 .map-wrapper {
   position: relative;
-  display: inline-block;
+  display: block;
   line-height: 0;
-  width: 100%;
+  max-width: 100%;
+  margin-inline: auto;
   overflow: hidden;
-  /* aspect-ratio и max-width выставляются динамически из JS (map.js updateScale) */
+  /* width, height, aspect-ratio задаются в map.js updateScale() под доступную область */
 }
 
 .map-wrapper img#floor-plan {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: fill;
+  object-fit: contain;
 }
 
 #pins-layer,
@@ -446,6 +448,12 @@ body {
 
   .main {
     flex-direction: column;
+  }
+
+  .map-container {
+    overflow-x: hidden;
+    overflow-y: auto;
+    align-items: flex-start;
   }
 
   .sidebar {
