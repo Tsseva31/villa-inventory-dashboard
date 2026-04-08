@@ -10,89 +10,134 @@ const CONFIG = {
   BUILDINGS: {
     'mc': {
       buildingId: 1,
+      buildingCode: 'MC',
       label: 'MC',
       fullName: 'Главный комплекс',
       floorPlan: 'assets/floor-plan-mc-1f.png',
+      planWidth: 2000,
+      planHeight: 1000,
       hasFloorPlan: true,
       zoneFilter: null
     },
     'mv-living': {
       buildingId: 2,
+      buildingCode: 'MV',
       label: 'MV Жилая',
       fullName: 'Главная вилла — Жилая зона',
-      floorPlan: 'assets/floor-plan-mv-1f.png',
+      floorPlan: 'assets/mv-2f.png',
+      planWidth: 2382,
+      planHeight: 1684,
       hasFloorPlan: true,
       zoneFilter: 201
     },
     'mv-spa': {
       buildingId: 2,
+      buildingCode: 'MV',
       label: 'MV Спа',
       fullName: 'Главная вилла — Спа и фитнес',
-      floorPlan: 'assets/floor-plan-mv-2f.png',
+      floorPlan: 'assets/mv-1f.png',
+      planWidth: 2382,
+      planHeight: 1684,
       hasFloorPlan: true,
       zoneFilter: 202
     },
     'sg-lower': {
       buildingId: 3,
+      buildingCode: 'SG',
       label: 'SG Нижний',
       fullName: 'Гостевая вилла с видом на море — Нижний уровень',
       floorPlan: 'assets/floor-plan-sg-lower.png',
+      planWidth: 1238,
+      planHeight: 1242,
       hasFloorPlan: true,
       zoneFilter: 301
     },
     'sg-upper': {
       buildingId: 3,
+      buildingCode: 'SG',
       label: 'SG Верхний',
       fullName: 'Гостевая вилла с видом на море — Верхний уровень',
       floorPlan: 'assets/floor-plan-sg-upper.png',
+      planWidth: 1218,
+      planHeight: 1238,
       hasFloorPlan: true,
       zoneFilter: 302
     },
     'ga1': {
       buildingId: 4,
+      buildingCode: 'GA1',
       label: 'GA1',
       fullName: 'Гостевая вилла 9.1',
       floorPlan: null,
+      planWidth: null,
+      planHeight: null,
       hasFloorPlan: false,
       zoneFilter: null
     },
     'ga2': {
       buildingId: 5,
+      buildingCode: 'GA2',
       label: 'GA2',
       fullName: 'Гостевая вилла 9.2',
       floorPlan: null,
+      planWidth: null,
+      planHeight: null,
       hasFloorPlan: false,
       zoneFilter: null
     },
     'ent': {
       buildingId: 6,
+      buildingCode: 'ENT',
       label: 'ENT',
       fullName: 'Развлекательный блок',
       floorPlan: 'assets/floor-plan-ent.png',
+      planWidth: 1739,
+      planHeight: 1189,
       hasFloorPlan: true,
       zoneFilter: null
     },
     'staff': {
       buildingId: 7,
+      buildingCode: 'STAFF',
       label: 'Staff',
       fullName: 'Корпус персонала',
       floorPlan: null,
+      planWidth: null,
+      planHeight: null,
       hasFloorPlan: false,
       zoneFilter: null
     },
     'site': {
       buildingId: 8,
+      buildingCode: 'SITE',
       label: 'Site',
       fullName: 'Территория и инфраструктура',
       floorPlan: null,
+      planWidth: null,
+      planHeight: null,
       hasFloorPlan: false,
       zoneFilter: null
     },
     'str': {
       buildingId: 9,
+      buildingCode: 'STR',
       label: 'Склад',
       fullName: 'Склад расходников',
       floorPlan: null,
+      planWidth: null,
+      planHeight: null,
+      hasFloorPlan: false,
+      zoneFilter: null,
+      listOnly: true
+    },
+    'all': {
+      buildingId: 0,
+      buildingCode: 'ALL',
+      label: 'Все',
+      fullName: 'Все здания',
+      floorPlan: null,
+      planWidth: null,
+      planHeight: null,
       hasFloorPlan: false,
       zoneFilter: null,
       listOnly: true
@@ -101,6 +146,10 @@ const CONFIG = {
 
   // Building codes that are storage-type: no floor plan, always list view
   STORAGE_BUILDING_IDS: ['STR'],
+
+  // Global fallback floor plan dimensions (MC) for defensive rendering paths
+  FLOOR_PLAN_WIDTH: 2000,
+  FLOOR_PLAN_HEIGHT: 1000,
 
   // Pin sizes — увеличить для лучшей видимости
   PIN_SIZE: 22,        // было 20

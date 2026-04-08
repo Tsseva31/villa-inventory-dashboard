@@ -129,11 +129,13 @@ class App {
       if (building.zoneFilter !== null && building.zoneFilter !== undefined) {
         if (roomZoneId !== building.zoneFilter) return;
       }
-      if (!room.code || room.pin_x === null || room.pin_y === null || room.pin_x === undefined || room.pin_y === undefined) return;
+      const px = parseFloat(room.pin_x);
+      const py = parseFloat(room.pin_y);
+      if (!room.code || isNaN(px) || isNaN(py)) return;
       roomsCoords[room.code] = {
         name: room.name || room.code,
-        x: parseFloat(room.pin_x),
-        y: parseFloat(room.pin_y)
+        x: px,
+        y: py
       };
     });
 

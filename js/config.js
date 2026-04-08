@@ -3,13 +3,14 @@ const CONFIG = {
   // Google Apps Script Web App URL
   // Replace after deploying Apps Script
  //
-  API_URL: window.VILLA_API_URL || 'https://script.google.com/macros/s/AKfycbw4t7buOpwg06ygeWhk6jQeUT9aUFuOheYb2-MFmx0NmRLvAvwNe_WO8b4f4zk-GYG_/exec',
+  API_URL: window.VILLA_API_URL || 'https://script.google.com/macros/s/AKfycby_rTaGMtSQps5ibqzO14kBhSItI7kEMEMhPk6CliCb9kP26aQr3VeTggzKsKZmUXI/exec',
 
   // Buildings / floor tabs
   DEFAULT_BUILDING: 'mc',
   BUILDINGS: {
     'mc': {
       buildingId: 1,
+      buildingCode: 'MC',
       label: 'MC',
       fullName: 'Главный комплекс',
       floorPlan: 'assets/floor-plan-mc-1f.png',
@@ -20,9 +21,10 @@ const CONFIG = {
     },
     'mv-living': {
       buildingId: 2,
+      buildingCode: 'MV',
       label: 'MV Жилая',
       fullName: 'Главная вилла — Жилая зона',
-      floorPlan: 'assets/floor-plan-mv-1f.png',
+      floorPlan: 'assets/mv-2f.png',
       planWidth: 2382,
       planHeight: 1684,
       hasFloorPlan: true,
@@ -30,9 +32,10 @@ const CONFIG = {
     },
     'mv-spa': {
       buildingId: 2,
+      buildingCode: 'MV',
       label: 'MV Спа',
       fullName: 'Главная вилла — Спа и фитнес',
-      floorPlan: 'assets/floor-plan-mv-2f.png',
+      floorPlan: 'assets/mv-1f.png',
       planWidth: 2382,
       planHeight: 1684,
       hasFloorPlan: true,
@@ -40,6 +43,7 @@ const CONFIG = {
     },
     'sg-lower': {
       buildingId: 3,
+      buildingCode: 'SG',
       label: 'SG Нижний',
       fullName: 'Гостевая вилла с видом на море — Нижний уровень',
       floorPlan: 'assets/floor-plan-sg-lower.png',
@@ -50,6 +54,7 @@ const CONFIG = {
     },
     'sg-upper': {
       buildingId: 3,
+      buildingCode: 'SG',
       label: 'SG Верхний',
       fullName: 'Гостевая вилла с видом на море — Верхний уровень',
       floorPlan: 'assets/floor-plan-sg-upper.png',
@@ -60,22 +65,29 @@ const CONFIG = {
     },
     'ga1': {
       buildingId: 4,
+      buildingCode: 'GA1',
       label: 'GA1',
       fullName: 'Гостевая вилла 9.1',
       floorPlan: null,
+      planWidth: null,
+      planHeight: null,
       hasFloorPlan: false,
       zoneFilter: null
     },
     'ga2': {
       buildingId: 5,
+      buildingCode: 'GA2',
       label: 'GA2',
       fullName: 'Гостевая вилла 9.2',
       floorPlan: null,
+      planWidth: null,
+      planHeight: null,
       hasFloorPlan: false,
       zoneFilter: null
     },
     'ent': {
       buildingId: 6,
+      buildingCode: 'ENT',
       label: 'ENT',
       fullName: 'Развлекательный блок',
       floorPlan: 'assets/floor-plan-ent.png',
@@ -86,25 +98,46 @@ const CONFIG = {
     },
     'staff': {
       buildingId: 7,
+      buildingCode: 'STAFF',
       label: 'Staff',
       fullName: 'Корпус персонала',
       floorPlan: null,
+      planWidth: null,
+      planHeight: null,
       hasFloorPlan: false,
       zoneFilter: null
     },
     'site': {
       buildingId: 8,
+      buildingCode: 'SITE',
       label: 'Site',
       fullName: 'Территория и инфраструктура',
       floorPlan: null,
+      planWidth: null,
+      planHeight: null,
       hasFloorPlan: false,
       zoneFilter: null
     },
     'str': {
       buildingId: 9,
+      buildingCode: 'STR',
       label: 'Склад',
       fullName: 'Склад расходников',
       floorPlan: null,
+      planWidth: null,
+      planHeight: null,
+      hasFloorPlan: false,
+      zoneFilter: null,
+      listOnly: true
+    },
+    'all': {
+      buildingId: 0,
+      buildingCode: 'ALL',
+      label: 'Все',
+      fullName: 'Все здания',
+      floorPlan: null,
+      planWidth: null,
+      planHeight: null,
       hasFloorPlan: false,
       zoneFilter: null,
       listOnly: true

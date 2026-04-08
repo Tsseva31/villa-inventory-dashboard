@@ -90,8 +90,10 @@ class FloorMap {
   }
 
   updateScale() {
-    const planW = this.floorPlanWidth || CONFIG.FLOOR_PLAN_WIDTH;
-    const planH = this.floorPlanHeight || CONFIG.FLOOR_PLAN_HEIGHT;
+    const fallbackW = this.floorPlan && this.floorPlan.naturalWidth ? this.floorPlan.naturalWidth : null;
+    const fallbackH = this.floorPlan && this.floorPlan.naturalHeight ? this.floorPlan.naturalHeight : null;
+    const planW = this.floorPlanWidth || CONFIG.FLOOR_PLAN_WIDTH || fallbackW || 1;
+    const planH = this.floorPlanHeight || CONFIG.FLOOR_PLAN_HEIGHT || fallbackH || 1;
 
     const wrapper = this.container.querySelector('.map-wrapper');
     if (!wrapper || !this.container) return;
