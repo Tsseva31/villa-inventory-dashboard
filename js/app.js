@@ -51,8 +51,9 @@ class App {
 
     if (building.hasFloorPlan && building.floorPlan) {
       await this.waitForFloorPlanImage();
-      this.syncFloorPlanDimensionsFromImage();
+      this.syncFloorPlanDimensionsFromImage(building);
     } else {
+      this.map.setRooms({});
       this.map.setFloorPlanDimensions(1, 1);
     }
 
@@ -131,11 +132,15 @@ class App {
     this.roomsCoords = roomsCoords;
   }
 
-  syncFloorPlanDimensionsFromImage() {
+  syncFloorPlanDimensionsFromImage(building) {
     const floorPlanEl = document.getElementById('floor-plan');
     if (!floorPlanEl) return;
-    const width = floorPlanEl.naturalWidth || floorPlanEl.width || 1;
-    const height = floorPlanEl.naturalHeight || floorPlanEl.height || 1;
+    const configuredWidth = building && Number(building.planWidth) > 0 ? Number(building.planWidth) : null;
+    const configuredHeight = building && Number(building.planHeight) > 0 ? Number(building.planHeight) : null;
+    const naturalWidth = floorPlanEl.naturalWidth || floorPlanEl.width || null;
+    const naturalHeight = floorPlanEl.naturalHeight || floorPlanEl.height || null;
+    const width = configuredWidth || naturalWidth || 1;
+    const height = configuredHeight || naturalHeight || 1;
     this.map.setFloorPlanDimensions(width, height);
   }
 
@@ -214,7 +219,7 @@ class App {
         const floorPlanEl = document.getElementById('floor-plan');
         if (floorPlanEl && buildingConfig.floorPlan) floorPlanEl.src = buildingConfig.floorPlan;
         await this.waitForFloorPlanImage();
-        this.syncFloorPlanDimensionsFromImage();
+        this.syncFloorPlanDimensionsFromImage(buildingConfig);
         this.rebuildRoomsCoordsFromApi();
         this.map.setRooms(this.roomsCoords);
       }

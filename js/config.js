@@ -13,6 +13,8 @@ const CONFIG = {
       label: 'MC',
       fullName: 'Главный комплекс',
       floorPlan: 'assets/floor-plan-mc-1f.png',
+      planWidth: 2000,
+      planHeight: 1000,
       hasFloorPlan: true,
       zoneFilter: null
     },
@@ -21,6 +23,8 @@ const CONFIG = {
       label: 'MV Жилая',
       fullName: 'Главная вилла — Жилая зона',
       floorPlan: 'assets/floor-plan-mv-1f.png',
+      planWidth: 2382,
+      planHeight: 1684,
       hasFloorPlan: true,
       zoneFilter: 201
     },
@@ -29,6 +33,8 @@ const CONFIG = {
       label: 'MV Спа',
       fullName: 'Главная вилла — Спа и фитнес',
       floorPlan: 'assets/floor-plan-mv-2f.png',
+      planWidth: 2382,
+      planHeight: 1684,
       hasFloorPlan: true,
       zoneFilter: 202
     },
@@ -37,6 +43,8 @@ const CONFIG = {
       label: 'SG Нижний',
       fullName: 'Гостевая вилла с видом на море — Нижний уровень',
       floorPlan: 'assets/floor-plan-sg-lower.png',
+      planWidth: 1238,
+      planHeight: 1242,
       hasFloorPlan: true,
       zoneFilter: 301
     },
@@ -45,6 +53,8 @@ const CONFIG = {
       label: 'SG Верхний',
       fullName: 'Гостевая вилла с видом на море — Верхний уровень',
       floorPlan: 'assets/floor-plan-sg-upper.png',
+      planWidth: 1218,
+      planHeight: 1238,
       hasFloorPlan: true,
       zoneFilter: 302
     },
@@ -69,6 +79,8 @@ const CONFIG = {
       label: 'ENT',
       fullName: 'Развлекательный блок',
       floorPlan: 'assets/floor-plan-ent.png',
+      planWidth: 1739,
+      planHeight: 1189,
       hasFloorPlan: true,
       zoneFilter: null
     },
@@ -101,6 +113,10 @@ const CONFIG = {
 
   // Building codes that are storage-type: no floor plan, always list view
   STORAGE_BUILDING_IDS: ['STR'],
+
+  // Global fallback floor plan dimensions (MC) for defensive rendering paths
+  FLOOR_PLAN_WIDTH: 2000,
+  FLOOR_PLAN_HEIGHT: 1000,
 
   // Pin sizes — увеличить для лучшей видимости
   PIN_SIZE: 22,        // было 20

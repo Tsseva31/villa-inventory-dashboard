@@ -48,8 +48,7 @@ class FloorMap {
   }
 
   initResizeObserver() {
-    const wrapper = this.container.querySelector('.map-wrapper');
-    if (!wrapper) return;
+    if (!this.container) return;
 
     const observer = new ResizeObserver((entries) => {
       const { width, height } = entries[0].contentRect;
@@ -57,7 +56,7 @@ class FloorMap {
         this.updateScale();
       }
     });
-    observer.observe(wrapper);
+    observer.observe(this.container);
     this.resizeObserver = observer;
   }
 
@@ -95,17 +94,41 @@ class FloorMap {
     const planH = this.floorPlanHeight || CONFIG.FLOOR_PLAN_HEIGHT;
 
     const wrapper = this.container.querySelector('.map-wrapper');
-    const rect = wrapper ? wrapper.getBoundingClientRect() : this.floorPlan.getBoundingClientRect();
+    if (!wrapper || !this.container) return;
+
+    const cs = getComputedStyle(this.container);
+    const padX = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+    const padY = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+    const cw = Math.max(1, this.container.clientWidth - padX);
+    const ch = Math.max(1, this.container.clientHeight - padY);
+
+    const isMobile =
+      typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 768px)').matches;
+    // Desktop: fit both dimensions (sidebar-aware width, header/tabs/footer-aware height).
+    // Mobile: fill horizontal space; allow vertical scroll when plan is tall.
+    let scaleFit = 1;
+    if (planW > 0 && planH > 0) {
+      scaleFit = isMobile ? cw / planW : Math.min(cw / planW, ch / planH);
+    }
+
+    const displayW = Math.max(1, planW * scaleFit);
+    const displayH = Math.max(1, planH * scaleFit);
+
+    wrapper.style.maxWidth = '100%';
+    wrapper.style.width = displayW + 'px';
+    wrapper.style.height = displayH + 'px';
+    wrapper.style.aspectRatio = planW + ' / ' + planH;
+
+    const rect = wrapper.getBoundingClientRect();
     if (typeof console !== 'undefined' && console.log) {
-      console.log('[PIN] updateScale:', { clientWidth: wrapper && wrapper.clientWidth, clientHeight: wrapper && wrapper.clientHeight, rect: rect.width + 'x' + rect.height });
+      console.log('[PIN] updateScale:', {
+        avail: cw + 'x' + ch,
+        display: displayW + 'x' + displayH,
+        rect: rect.width + 'x' + rect.height,
+        isMobile,
+      });
     }
     this.scale = rect.width / planW;
-
-    // Keep .map-wrapper aspect-ratio in sync with current floor plan dimensions
-    if (wrapper) {
-      wrapper.style.maxWidth = planW + 'px';
-      wrapper.style.aspectRatio = planW + ' / ' + planH;
-    }
 
     // SVG always in natural floor-plan coords; scaling via viewBox
     this.pinsLayer.setAttribute('viewBox', '0 0 ' + planW + ' ' + planH);
