@@ -81,12 +81,21 @@ class App {
    */
   itemBelongsToBuilding(item) {
     const building = this._getBuilding(this.activeBuilding);
-    const itemBuildingId = item.building_id !== undefined && item.building_id !== null && item.building_id !== ''
-      ? parseInt(item.building_id, 10)
-      : null;
-
-    // If API did not return building_id at all, keep backward-compatible behavior.
-    if (itemBuildingId === null || isNaN(itemBuildingId)) return true;
+    let itemBuildingId = null;
+    if (item.building_id !== undefined && item.building_id !== null && item.building_id !== '') {
+      const parsed = parseInt(item.building_id, 10);
+      if (!isNaN(parsed)) itemBuildingId = parsed;
+    }
+    if (itemBuildingId === null) {
+      const itemZoneRaw = item.zone_id !== undefined && item.zone_id !== null && item.zone_id !== ''
+        ? item.zone_id
+        : this.roomIdToZoneId[item.room_id];
+      const itemZone = itemZoneRaw !== undefined && itemZoneRaw !== null && itemZoneRaw !== ''
+        ? parseInt(itemZoneRaw, 10)
+        : NaN;
+      if (!isNaN(itemZone)) itemBuildingId = Math.floor(itemZone / 100);
+    }
+    if (itemBuildingId === null || isNaN(itemBuildingId)) return false;
 
     if (itemBuildingId !== building.buildingId) return false;
 
@@ -110,14 +119,13 @@ class App {
 
     const roomsCoords = {};
     this.rooms.forEach(room => {
-      const roomBuildingId = room.building_id !== undefined && room.building_id !== null && room.building_id !== ''
-        ? parseInt(room.building_id, 10)
-        : null;
-      if (roomBuildingId !== building.buildingId) return;
+      const roomZoneId = room.zone_id !== undefined && room.zone_id !== null && room.zone_id !== ''
+        ? parseInt(room.zone_id, 10)
+        : NaN;
+      if (isNaN(roomZoneId)) return;
+      const roomBuildingIdFromZone = Math.floor(roomZoneId / 100);
+      if (roomBuildingIdFromZone !== building.buildingId) return;
       if (building.zoneFilter !== null && building.zoneFilter !== undefined) {
-        const roomZoneId = room.zone_id !== undefined && room.zone_id !== null && room.zone_id !== ''
-          ? parseInt(room.zone_id, 10)
-          : null;
         if (roomZoneId !== building.zoneFilter) return;
       }
       if (!room.code || room.pin_x === null || room.pin_y === null || room.pin_x === undefined || room.pin_y === undefined) return;
