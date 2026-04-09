@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -6,336 +6,103 @@
   <title>GA floor plan — pin calibration</title>
   <style>
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: system-ui, Segoe UI, sans-serif;
-      background: #1a1a1e;
-      color: #e8e8ec;
-      min-height: 100vh;
-    }
-    .toolbar {
-      position: sticky;
-      top: 0;
-      z-index: 20;
-      background: #25252b;
-      border-bottom: 1px solid #3a3a44;
-      padding: 12px 16px;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 12px;
-    }
+    body { margin: 0; font-family: system-ui, Segoe UI, sans-serif; background: #1a1a1e; color: #e8e8ec; }
+    .toolbar { position: sticky; top: 0; z-index: 20; background: #25252b; border-bottom: 1px solid #3a3a44; padding: 12px 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
     .toolbar label { font-size: 14px; color: #b0b0b8; }
-    select {
-      min-width: 220px;
-      padding: 8px 10px;
-      font-size: 14px;
-      background: #2e2e36;
-      color: #fff;
-      border: 1px solid #4a4a56;
-      border-radius: 6px;
-    }
-    button {
-      padding: 8px 16px;
-      font-size: 14px;
-      font-weight: 600;
-      background: #3d5a80;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
+    select { min-width: 240px; padding: 8px 10px; font-size: 14px; background: #2e2e36; color: #fff; border: 1px solid #4a4a56; border-radius: 6px; }
+    button { padding: 8px 14px; font-size: 14px; font-weight: 600; background: #3d5a80; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
     button:hover { background: #4a6b96; }
-    button:active { transform: scale(0.98); }
-    .hint {
-      flex: 1 1 100%;
-      margin: 0;
-      padding: 10px 12px;
-      background: #2a2418;
-      border: 1px solid #6b5a2a;
-      border-radius: 6px;
-      font-size: 13px;
-      line-height: 1.45;
-      color: #e8d89a;
-    }
-    .scroll-area {
-      overflow: auto;
-      max-height: calc(100vh - 200px);
-      padding: 16px;
-      background: #121214;
-    }
-    .plan-wrap {
-      position: relative;
-      display: inline-block;
-      line-height: 0;
-      vertical-align: top;
-    }
-    #plan {
-      display: block;
-      width: 4962px;
-      height: 3508px;
-      cursor: crosshair;
-      user-select: none;
-    }
-    .plan-overlay {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-    }
-    .divider-line {
-      position: absolute;
-      left: 50%;
-      top: 0;
-      bottom: 0;
-      width: 0;
-      border-left: 2px dashed rgba(255, 180, 80, 0.45);
-      transform: translateX(-1px);
-    }
-    .label-left, .label-right {
-      position: absolute;
-      top: 12px;
-      padding: 6px 12px;
-      font-size: 14px;
-      font-weight: 700;
-      background: rgba(0, 0, 0, 0.55);
-      border-radius: 4px;
-      color: #fff;
-    }
+    .danger-btn { background: #8f2f2f; }
+    .danger-btn:hover { background: #ab3b3b; }
+    .counter { font-size: 14px; color: #d7d7df; padding: 8px 10px; border-radius: 6px; border: 1px solid #4a4a56; background: #2b2b33; min-width: 140px; text-align: center; }
+    .hint { flex: 1 1 100%; margin: 0; padding: 10px 12px; background: #2a2418; border: 1px solid #6b5a2a; border-radius: 6px; font-size: 13px; line-height: 1.45; color: #e8d89a; }
+    .scroll-area { overflow: auto; height: calc(100vh - 230px); padding: 16px; background: #121214; }
+    .plan-wrap { position: relative; display: inline-block; line-height: 0; transform-origin: top left; will-change: transform; }
+    #plan { display: block; width: 4962px; height: 3508px; cursor: crosshair; user-select: none; -webkit-user-drag: none; }
+    .plan-overlay { position: absolute; inset: 0; pointer-events: none; }
+    .divider-line { position: absolute; left: 50%; top: 0; bottom: 0; width: 0; border-left: 2px dashed rgba(255, 180, 80, 0.45); transform: translateX(-1px); }
+    .label-left, .label-right { position: absolute; top: 12px; padding: 6px 12px; font-size: 14px; font-weight: 700; background: rgba(0, 0, 0, 0.55); border-radius: 4px; color: #fff; }
     .label-left { left: 12px; }
     .label-right { right: 12px; }
-    #dots {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-    }
-    .pin-dot {
-      position: absolute;
-      width: 10px;
-      height: 10px;
-      margin-left: -5px;
-      margin-top: -5px;
-      border-radius: 50%;
-      background: #ff2222;
-      border: 2px solid #fff;
-      box-shadow: 0 0 4px rgba(0,0,0,0.8);
-    }
-    .coords-hud {
-      position: fixed;
-      top: 12px;
-      right: 12px;
-      z-index: 30;
-      padding: 10px 14px;
-      font-family: ui-monospace, Consolas, monospace;
-      font-size: 13px;
-      background: rgba(0, 0, 0, 0.82);
-      border: 1px solid #4a4a56;
-      border-radius: 6px;
-      color: #7df9a0;
-      min-width: 200px;
-      text-align: right;
-    }
+    #dots { position: absolute; inset: 0; pointer-events: none; }
+    .pin-dot { position: absolute; width: 22px; height: 22px; margin-left: -11px; margin-top: -11px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 4px rgba(0, 0, 0, 0.8); cursor: grab; pointer-events: auto; }
+    .pin-dot[data-code^="GA1-"] { background: #ff2f2f; }
+    .pin-dot[data-code^="GA2-"] { background: #2f7dff; }
+    .pin-dot.selected { border-color: #ffd54a; box-shadow: 0 0 0 2px rgba(255, 213, 74, 0.35), 0 0 6px rgba(0, 0, 0, 0.9); }
+    .pin-dot::after { content: attr(data-code); position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); padding: 2px 6px; border-radius: 4px; background: rgba(0, 0, 0, 0.9); color: #fff; font-size: 11px; font-family: ui-monospace, Consolas, monospace; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.12s ease; }
+    .pin-dot:hover::after, .pin-dot.selected::after { opacity: 1; }
+    .coords-hud { position: fixed; top: 12px; right: 12px; z-index: 30; padding: 10px 14px; font-family: ui-monospace, Consolas, monospace; font-size: 13px; background: rgba(0, 0, 0, 0.82); border: 1px solid #4a4a56; border-radius: 6px; color: #7df9a0; min-width: 260px; text-align: right; }
     .coords-hud span { color: #b0b0b8; }
-    .panels {
-      padding: 0 16px 24px;
-      display: grid;
-      gap: 12px;
-      max-width: 1200px;
-    }
-    .panels h2 {
-      margin: 0 0 6px;
-      font-size: 14px;
-      font-weight: 600;
-      color: #9898a4;
-    }
-    textarea {
-      width: 100%;
-      min-height: 100px;
-      padding: 10px;
-      font-family: ui-monospace, Consolas, monospace;
-      font-size: 12px;
-      line-height: 1.4;
-      background: #1e1e24;
-      color: #d4d4dc;
-      border: 1px solid #3a3a44;
-      border-radius: 6px;
-      resize: vertical;
-    }
+    .panels { padding: 0 16px 24px; display: grid; gap: 12px; max-width: 1200px; }
+    .panels h2 { margin: 0 0 6px; font-size: 14px; font-weight: 600; color: #9898a4; }
+    textarea { width: 100%; min-height: 100px; padding: 10px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; line-height: 1.4; background: #1e1e24; color: #d4d4dc; border: 1px solid #3a3a44; border-radius: 6px; resize: vertical; }
     #pinsOut { min-height: 180px; }
   </style>
 </head>
 <body>
-  <div class="coords-hud" id="coordsHud" aria-live="polite">
-    <span>Mouse</span> — X: — | Y: —<br />
-    <span>(over plan)</span>
-  </div>
-
+  <div class="coords-hud" id="coordsHud"><span>Mouse</span> — X: — | Y: —<br /><span>Zoom</span> — 100%</div>
   <div class="toolbar">
     <div>
       <label for="roomSelect">Room code</label><br />
       <select id="roomSelect" autofocus>
         <option value="">— Select room, then click plan —</option>
-        <optgroup label="GA1 (9.1 — left half)">
-          <option>GA1-BEDROOM2</option>
-          <option>GA1-ENSUITE2</option>
-          <option>GA1-KID2</option>
-          <option>GA1-WIR2</option>
-          <option>GA1-LIVING</option>
-          <option>GA1-BEDROOM6</option>
-          <option>GA1-ENSUITE6</option>
-          <option>GA1-BEDROOM4</option>
-          <option>GA1-ENSUITE4</option>
-          <option>GA1-KID4</option>
-          <option>GA1-WIR4</option>
-          <option>GA1-POWDER-R</option>
-          <option>GA1-PANTRY</option>
-          <option>GA1-WC</option>
-          <option>GA1-SHOWER</option>
-          <option>GA1-TERRACE</option>
-        </optgroup>
-        <optgroup label="GA2 (9.2 — right half)">
-          <option>GA2-BEDROOM1</option>
-          <option>GA2-ENSUITE1</option>
-          <option>GA2-KID1</option>
-          <option>GA2-WIR1</option>
-          <option>GA2-LIVING</option>
-          <option>GA2-BEDROOM5</option>
-          <option>GA2-ENSUITE5</option>
-          <option>GA2-BEDROOM3</option>
-          <option>GA2-ENSUITE3</option>
-          <option>GA2-KID3</option>
-          <option>GA2-WIR3</option>
-          <option>GA2-POWDER-R</option>
-          <option>GA2-PANTRY</option>
-          <option>GA2-WC</option>
-          <option>GA2-SHOWER</option>
-          <option>GA2-TERRACE</option>
-        </optgroup>
+        <optgroup label="GA1 (9.1 — left half)"><option>GA1-BEDROOM2</option><option>GA1-ENSUITE2</option><option>GA1-KID2</option><option>GA1-WIR2</option><option>GA1-LIVING</option><option>GA1-BEDROOM6</option><option>GA1-ENSUITE6</option><option>GA1-BEDROOM4</option><option>GA1-ENSUITE4</option><option>GA1-KID4</option><option>GA1-WIR4</option><option>GA1-POWDER-R</option><option>GA1-PANTRY</option><option>GA1-WC</option><option>GA1-SHOWER</option><option>GA1-TERRACE</option></optgroup>
+        <optgroup label="GA2 (9.2 — right half)"><option>GA2-BEDROOM1</option><option>GA2-ENSUITE1</option><option>GA2-KID1</option><option>GA2-WIR1</option><option>GA2-LIVING</option><option>GA2-BEDROOM5</option><option>GA2-ENSUITE5</option><option>GA2-BEDROOM3</option><option>GA2-ENSUITE3</option><option>GA2-KID3</option><option>GA2-WIR3</option><option>GA2-POWDER-R</option><option>GA2-PANTRY</option><option>GA2-WC</option><option>GA2-SHOWER</option><option>GA2-TERRACE</option></optgroup>
       </select>
     </div>
-    <button type="button" id="copyAll">Copy All</button>
-    <p class="hint">
-      <strong>Two villas on one image:</strong> <strong>9.1 (GA1)</strong> is the <strong>left</strong> half of the plan;
-      <strong>9.2 (GA2)</strong> is the <strong>right</strong> half. Orange dashed line = center. Pick a room from the list, then click the plan to drop a pin (native size 4962×3508 px).
-    </p>
+    <button type="button" id="fitBtn">Fit</button><button type="button" id="zoom50Btn">50%</button><button type="button" id="zoom100Btn">100%</button>
+    <div class="counter" id="placedCounter">Placed: 0 / 32</div>
+    <button type="button" id="copyAll">Copy All</button><button type="button" id="clearAll" class="danger-btn">Clear All</button>
+    <p class="hint"><strong>Two villas on one image:</strong> <strong>9.1 (GA1)</strong> left, <strong>9.2 (GA2)</strong> right. Orange dashed line = center. Ctrl + wheel = zoom.</p>
   </div>
-
-  <div class="scroll-area" id="scrollArea">
-    <div class="plan-wrap" id="planWrap">
-      <img
-        id="plan"
-        src="assets/floor-plan-ga.png"
-        width="4962"
-        height="3508"
-        alt="GA combined floor plan"
-      />
-      <div class="plan-overlay">
-        <div class="divider-line" title="Approximate boundary between GA1 (left) and GA2 (right)"></div>
-        <div class="label-left">GA1 · 9.1 ←</div>
-        <div class="label-right">→ GA2 · 9.2</div>
-      </div>
-      <div id="dots"></div>
-    </div>
-  </div>
-
-  <div class="panels">
-    <div>
-      <h2>Click log</h2>
-      <textarea id="logOut" readonly rows="6"></textarea>
-    </div>
-    <div>
-      <h2>Pins (Apps Script–style)</h2>
-      <textarea id="pinsOut" readonly></textarea>
-    </div>
-  </div>
-
+  <div class="scroll-area" id="scrollArea"><div class="plan-wrap" id="planWrap"><img id="plan" src="assets/floor-plan-ga.png" width="4962" height="3508" alt="GA combined floor plan" /><div class="plan-overlay"><div class="divider-line"></div><div class="label-left">GA1 · 9.1 ←</div><div class="label-right">→ GA2 · 9.2</div></div><div id="dots"></div></div></div>
+  <div class="panels"><div><h2>Click log</h2><textarea id="logOut" readonly rows="6"></textarea></div><div><h2>Pins (Apps Script-style)</h2><textarea id="pinsOut" readonly></textarea></div></div>
   <script>
     (function () {
-      var plan = document.getElementById('plan');
-      var dots = document.getElementById('dots');
-      var roomSelect = document.getElementById('roomSelect');
-      var logOut = document.getElementById('logOut');
-      var pinsOut = document.getElementById('pinsOut');
-      var coordsHud = document.getElementById('coordsHud');
-      var copyAll = document.getElementById('copyAll');
-      var pins = [];
-
-      function imageXY(e) {
-        var rect = plan.getBoundingClientRect();
-        var x = Math.round(e.clientX - rect.left);
-        var y = Math.round(e.clientY - rect.top);
-        x = Math.max(0, Math.min(4961, x));
-        y = Math.max(0, Math.min(3507, y));
-        return { x: x, y: y };
-      }
-
-      function renderPins() {
-        pinsOut.value = pins
-          .map(function (p) {
-            return '{code: "' + p.code + '", x: ' + p.x + ', y: ' + p.y + '}';
-          })
-          .join(',\n');
-      }
-
-      plan.addEventListener('mousemove', function (e) {
-        var o = imageXY(e);
-        coordsHud.innerHTML =
-          '<span>Mouse</span> — X: ' + o.x + ' | Y: ' + o.y + '<br /><span>native px · 4962×3508</span>';
-      });
-
-      plan.addEventListener('mouseleave', function () {
-        coordsHud.innerHTML =
-          '<span>Mouse</span> — X: — | Y: —<br /><span>(over plan)</span>';
-      });
-
-      plan.addEventListener('click', function (e) {
-        e.preventDefault();
-        var code = roomSelect.value;
-        if (!code) {
-          alert('Choose a room from the dropdown first, then click the plan.');
-          roomSelect.focus();
-          return;
-        }
-        var o = imageXY(e);
-        var dot = document.createElement('div');
-        dot.className = 'pin-dot';
-        dot.style.left = o.x + 'px';
-        dot.style.top = o.y + 'px';
-        dot.title = code + ' (' + o.x + ', ' + o.y + ')';
-        dots.appendChild(dot);
-
-        var line =
-          'Room: ' + code + ' | X: ' + o.x + ' | Y: ' + o.y + '\n';
-        logOut.value += line;
-        logOut.scrollTop = logOut.scrollHeight;
-
-        pins.push({ code: code, x: o.x, y: o.y });
-        renderPins();
-        roomSelect.focus();
-      });
-
-      copyAll.addEventListener('click', function () {
-        var text = pinsOut.value.trim();
-        if (!text) {
-          alert('No pins recorded yet.');
-          return;
-        }
-        navigator.clipboard.writeText(text).then(
-          function () {
-            copyAll.textContent = 'Copied!';
-            setTimeout(function () {
-              copyAll.textContent = 'Copy All';
-            }, 1500);
-          },
-          function () {
-            pinsOut.select();
-            document.execCommand('copy');
-            copyAll.textContent = 'Copied (fallback)';
-            setTimeout(function () {
-              copyAll.textContent = 'Copy All';
-            }, 1500);
-          }
-        );
-      });
+      var NATIVE_WIDTH = 4962, NATIVE_HEIGHT = 3508, STORAGE_KEY = "ga_calibration_pins_v1";
+      var plan = document.getElementById("plan"), planWrap = document.getElementById("planWrap"), scrollArea = document.getElementById("scrollArea");
+      var dots = document.getElementById("dots"), roomSelect = document.getElementById("roomSelect"), logOut = document.getElementById("logOut"), pinsOut = document.getElementById("pinsOut");
+      var coordsHud = document.getElementById("coordsHud"), copyAll = document.getElementById("copyAll"), clearAll = document.getElementById("clearAll");
+      var fitBtn = document.getElementById("fitBtn"), zoom50Btn = document.getElementById("zoom50Btn"), zoom100Btn = document.getElementById("zoom100Btn"), placedCounter = document.getElementById("placedCounter");
+      var pins = [], selectedPinId = null, draggingPinId = null, isDragging = false, currentScale = 1, mouseNative = { x: null, y: null }, reassignPinId = null;
+      var roomOptions = Array.prototype.slice.call(roomSelect.options).filter(function (opt) { return !!opt.value; });
+      roomOptions.forEach(function (opt) { opt.value = opt.value || opt.textContent.trim(); opt.dataset.code = opt.value; opt.dataset.baseLabel = opt.textContent.trim(); });
+      function clamp(v, mn, mx) { return Math.max(mn, Math.min(mx, v)); }
+      function getCodeSet() { return new Set(pins.map(function (p) { return p.code; })); }
+      function findPinIndexById(id) { for (var i = 0; i < pins.length; i += 1) if (pins[i].id === id) return i; return -1; }
+      function findPinByCode(code) { for (var i = 0; i < pins.length; i += 1) if (pins[i].code === code) return pins[i]; return null; }
+      function nextUnplacedCode() { var used = getCodeSet(); for (var i = 0; i < roomOptions.length; i += 1) { var c = roomOptions[i].dataset.code; if (!used.has(c)) return c; } return ""; }
+      function updateDropdownState() { var used = getCodeSet(); roomOptions.forEach(function (o) { o.textContent = (used.has(o.dataset.code) ? "✅ " : "") + o.dataset.baseLabel; }); }
+      function updateCounter() { placedCounter.textContent = "Placed: " + pins.length + " / " + roomOptions.length; }
+      function updateHud() { coordsHud.innerHTML = "<span>Mouse</span> — X: " + (mouseNative.x === null ? "—" : mouseNative.x) + " | Y: " + (mouseNative.y === null ? "—" : mouseNative.y) + "<br /><span>Zoom</span> — " + Math.round(currentScale * 100) + "%"; }
+      function persistPins() { localStorage.setItem(STORAGE_KEY, JSON.stringify(pins)); }
+      function renderOutputs() { pinsOut.value = pins.map(function (p) { return '{code: "' + p.code + '", x: ' + p.x + ', y: ' + p.y + '}'; }).join(',\n'); }
+      function logLine(t) { logOut.value += t + "\n"; logOut.scrollTop = logOut.scrollHeight; }
+      function renderPins() { dots.innerHTML = ""; pins.forEach(function (p) { var d = document.createElement("div"); d.className = "pin-dot" + (p.id === selectedPinId ? " selected" : ""); d.style.left = p.x + "px"; d.style.top = p.y + "px"; d.dataset.id = p.id; d.dataset.code = p.code; d.title = p.code + " (" + p.x + ", " + p.y + ")"; dots.appendChild(d); }); }
+      function refreshAll() { renderPins(); renderOutputs(); updateDropdownState(); updateCounter(); updateHud(); }
+      function selectPin(id) { selectedPinId = id; renderPins(); }
+      function toNativeXY(ev) { var rect = plan.getBoundingClientRect(); return { x: clamp(Math.round((ev.clientX - rect.left) / currentScale), 0, NATIVE_WIDTH - 1), y: clamp(Math.round((ev.clientY - rect.top) / currentScale), 0, NATIVE_HEIGHT - 1) }; }
+      function setZoom(scale) { currentScale = clamp(scale, 0.2, 2); planWrap.style.transform = "scale(" + currentScale + ")"; updateHud(); }
+      function fitToScreen() { setZoom(Math.min((scrollArea.clientWidth - 20) / NATIVE_WIDTH, (scrollArea.clientHeight - 20) / NATIVE_HEIGHT)); }
+      function autoSelectNextUnplaced() { roomSelect.value = nextUnplacedCode(); }
+      function placePin(code, x, y) { if (!code) return; var existing = findPinByCode(code); if (existing) { existing.x = x; existing.y = y; selectedPinId = existing.id; logLine("Updated: Room: " + code + " | X: " + x + " | Y: " + y); } else { var pin = { id: String(Date.now()) + "_" + Math.random().toString(16).slice(2), code: code, x: x, y: y }; pins.push(pin); selectedPinId = pin.id; logLine("Room: " + code + " | X: " + x + " | Y: " + y); } persistPins(); refreshAll(); autoSelectNextUnplaced(); roomSelect.focus(); }
+      function deleteSelectedPin() { if (!selectedPinId) return; var idx = findPinIndexById(selectedPinId); if (idx === -1) return; var removed = pins.splice(idx, 1)[0]; selectedPinId = null; persistPins(); refreshAll(); logLine("Deleted: " + removed.code); autoSelectNextUnplaced(); }
+      function loadPins() { var raw = localStorage.getItem(STORAGE_KEY); if (!raw) return; try { var parsed = JSON.parse(raw); if (!Array.isArray(parsed)) return; pins = parsed.filter(function (p) { return p && typeof p.code === "string" && Number.isFinite(p.x) && Number.isFinite(p.y); }).map(function (p) { return { id: p.id || (String(Date.now()) + "_" + Math.random().toString(16).slice(2)), code: p.code, x: clamp(Math.round(p.x), 0, NATIVE_WIDTH - 1), y: clamp(Math.round(p.y), 0, NATIVE_HEIGHT - 1) }; }); logLine("Loaded pins from localStorage: " + pins.length); } catch (err) { console.error(err); } }
+      plan.addEventListener("mousemove", function (ev) { var xy = toNativeXY(ev); mouseNative.x = xy.x; mouseNative.y = xy.y; updateHud(); });
+      plan.addEventListener("mouseleave", function () { mouseNative.x = null; mouseNative.y = null; updateHud(); });
+      plan.addEventListener("click", function (ev) { if (ev.target.closest(".pin-dot")) return; var code = roomSelect.value; if (!code) { alert("Choose a room from the dropdown first, then click the plan."); roomSelect.focus(); return; } var xy = toNativeXY(ev); placePin(code, xy.x, xy.y); });
+      dots.addEventListener("mousedown", function (ev) { var dot = ev.target.closest(".pin-dot"); if (!dot) return; draggingPinId = dot.dataset.id; isDragging = true; selectPin(draggingPinId); ev.preventDefault(); });
+      dots.addEventListener("click", function (ev) { var dot = ev.target.closest(".pin-dot"); if (!dot) return; selectPin(dot.dataset.id); });
+      dots.addEventListener("dblclick", function (ev) { var dot = ev.target.closest(".pin-dot"); if (!dot) return; selectPin(dot.dataset.id); reassignPinId = dot.dataset.id; var idx = findPinIndexById(reassignPinId); if (idx !== -1) { roomSelect.value = pins[idx].code; roomSelect.focus(); alert("Select a new room in dropdown to re-assign this selected pin."); } ev.preventDefault(); ev.stopPropagation(); });
+      window.addEventListener("mousemove", function (ev) { if (!isDragging || !draggingPinId) return; var idx = findPinIndexById(draggingPinId); if (idx === -1) return; var xy = toNativeXY(ev); pins[idx].x = xy.x; pins[idx].y = xy.y; selectedPinId = draggingPinId; persistPins(); renderPins(); renderOutputs(); });
+      window.addEventListener("mouseup", function () { if (!isDragging) return; isDragging = false; draggingPinId = null; });
+      window.addEventListener("keydown", function (ev) { if ((ev.key === "Delete" || ev.key === "Backspace") && document.activeElement !== roomSelect) { deleteSelectedPin(); ev.preventDefault(); } });
+      roomSelect.addEventListener("change", function () { if (!reassignPinId) return; var newCode = roomSelect.value; if (!newCode) return; var idx = findPinIndexById(reassignPinId); if (idx === -1) { reassignPinId = null; return; } var duplicate = pins.some(function (p) { return p.code === newCode && p.id !== reassignPinId; }); if (duplicate) { alert("This room already has a pin. Delete it first or choose another room."); roomSelect.value = pins[idx].code; roomSelect.focus(); return; } var oldCode = pins[idx].code; pins[idx].code = newCode; selectedPinId = reassignPinId; reassignPinId = null; persistPins(); refreshAll(); logLine("Reassigned: " + oldCode + " -> " + newCode); });
+      copyAll.addEventListener("click", function () { var text = pinsOut.value.trim(); if (!text) { alert("No pins recorded yet."); return; } navigator.clipboard.writeText(text).then(function () { copyAll.textContent = "Copied!"; setTimeout(function () { copyAll.textContent = "Copy All"; }, 1500); }, function () { pinsOut.select(); document.execCommand("copy"); copyAll.textContent = "Copied (fallback)"; setTimeout(function () { copyAll.textContent = "Copy All"; }, 1500); }); });
+      clearAll.addEventListener("click", function () { if (!pins.length) return; if (!confirm("Clear all pins from view and localStorage?")) return; pins = []; selectedPinId = null; reassignPinId = null; persistPins(); refreshAll(); logLine("Cleared all pins."); roomSelect.value = ""; });
+      fitBtn.addEventListener("click", fitToScreen); zoom50Btn.addEventListener("click", function () { setZoom(0.5); }); zoom100Btn.addEventListener("click", function () { setZoom(1); });
+      scrollArea.addEventListener("wheel", function (ev) { if (!ev.ctrlKey) return; ev.preventDefault(); setZoom(currentScale * (ev.deltaY < 0 ? 1.1 : 0.9)); }, { passive: false });
+      loadPins(); refreshAll(); fitToScreen(); autoSelectNextUnplaced();
     })();
   </script>
 </body>
