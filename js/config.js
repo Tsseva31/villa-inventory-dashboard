@@ -68,10 +68,10 @@ const CONFIG = {
       buildingCode: 'GA1',
       label: 'GA1',
       fullName: 'Гостевая вилла 9.1',
-      floorPlan: null,
-      planWidth: null,
-      planHeight: null,
-      hasFloorPlan: false,
+      floorPlan: 'assets/floor-plan-ga.png',
+      planWidth: 4962,
+      planHeight: 3508,
+      hasFloorPlan: true,
       zoneFilter: null
     },
     'ga2': {
@@ -79,10 +79,10 @@ const CONFIG = {
       buildingCode: 'GA2',
       label: 'GA2',
       fullName: 'Гостевая вилла 9.2',
-      floorPlan: null,
-      planWidth: null,
-      planHeight: null,
-      hasFloorPlan: false,
+      floorPlan: 'assets/floor-plan-ga.png',
+      planWidth: 4962,
+      planHeight: 3508,
+      hasFloorPlan: true,
       zoneFilter: null
     },
     'ent': {

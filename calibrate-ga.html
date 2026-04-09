@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GA floor plan — pin calibration</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, Segoe UI, sans-serif;
+      background: #1a1a1e;
+      color: #e8e8ec;
+      min-height: 100vh;
+    }
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: #25252b;
+      border-bottom: 1px solid #3a3a44;
+      padding: 12px 16px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+    }
+    .toolbar label { font-size: 14px; color: #b0b0b8; }
+    select {
+      min-width: 220px;
+      padding: 8px 10px;
+      font-size: 14px;
+      background: #2e2e36;
+      color: #fff;
+      border: 1px solid #4a4a56;
+      border-radius: 6px;
+    }
+    button {
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 600;
+      background: #3d5a80;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover { background: #4a6b96; }
+    button:active { transform: scale(0.98); }
+    .hint {
+      flex: 1 1 100%;
+      margin: 0;
+      padding: 10px 12px;
+      background: #2a2418;
+      border: 1px solid #6b5a2a;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: #e8d89a;
+    }
+    .scroll-area {
+      overflow: auto;
+      max-height: calc(100vh - 200px);
+      padding: 16px;
+      background: #121214;
+    }
+    .plan-wrap {
+      position: relative;
+      display: inline-block;
+      line-height: 0;
+      vertical-align: top;
+    }
+    #plan {
+      display: block;
+      width: 4962px;
+      height: 3508px;
+      cursor: crosshair;
+      user-select: none;
+    }
+    .plan-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .divider-line {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 0;
+      border-left: 2px dashed rgba(255, 180, 80, 0.45);
+      transform: translateX(-1px);
+    }
+    .label-left, .label-right {
+      position: absolute;
+      top: 12px;
+      padding: 6px 12px;
+      font-size: 14px;
+      font-weight: 700;
+      background: rgba(0, 0, 0, 0.55);
+      border-radius: 4px;
+      color: #fff;
+    }
+    .label-left { left: 12px; }
+    .label-right { right: 12px; }
+    #dots {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .pin-dot {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      margin-left: -5px;
+      margin-top: -5px;
+      border-radius: 50%;
+      background: #ff2222;
+      border: 2px solid #fff;
+      box-shadow: 0 0 4px rgba(0,0,0,0.8);
+    }
+    .coords-hud {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      z-index: 30;
+      padding: 10px 14px;
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 13px;
+      background: rgba(0, 0, 0, 0.82);
+      border: 1px solid #4a4a56;
+      border-radius: 6px;
+      color: #7df9a0;
+      min-width: 200px;
+      text-align: right;
+    }
+    .coords-hud span { color: #b0b0b8; }
+    .panels {
+      padding: 0 16px 24px;
+      display: grid;
+      gap: 12px;
+      max-width: 1200px;
+    }
+    .panels h2 {
+      margin: 0 0 6px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #9898a4;
+    }
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 10px;
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 12px;
+      line-height: 1.4;
+      background: #1e1e24;
+      color: #d4d4dc;
+      border: 1px solid #3a3a44;
+      border-radius: 6px;
+      resize: vertical;
+    }
+    #pinsOut { min-height: 180px; }
+  </style>
+</head>
+<body>
+  <div class="coords-hud" id="coordsHud" aria-live="polite">
+    <span>Mouse</span> — X: — | Y: —<br />
+    <span>(over plan)</span>
+  </div>
+
+  <div class="toolbar">
+    <div>
+      <label for="roomSelect">Room code</label><br />
+      <select id="roomSelect" autofocus>
+        <option value="">— Select room, then click plan —</option>
+        <optgroup label="GA1 (9.1 — left half)">
+          <option>GA1-BEDROOM2</option>
+          <option>GA1-ENSUITE2</option>
+          <option>GA1-KID2</option>
+          <option>GA1-WIR2</option>
+          <option>GA1-LIVING</option>
+          <option>GA1-BEDROOM6</option>
+          <option>GA1-ENSUITE6</option>
+          <option>GA1-BEDROOM4</option>
+          <option>GA1-ENSUITE4</option>
+          <option>GA1-KID4</option>
+          <option>GA1-WIR4</option>
+          <option>GA1-POWDER-R</option>
+          <option>GA1-PANTRY</option>
+          <option>GA1-WC</option>
+          <option>GA1-SHOWER</option>
+          <option>GA1-TERRACE</option>
+        </optgroup>
+        <optgroup label="GA2 (9.2 — right half)">
+          <option>GA2-BEDROOM1</option>
+          <option>GA2-ENSUITE1</option>
+          <option>GA2-KID1</option>
+          <option>GA2-WIR1</option>
+          <option>GA2-LIVING</option>
+          <option>GA2-BEDROOM5</option>
+          <option>GA2-ENSUITE5</option>
+          <option>GA2-BEDROOM3</option>
+          <option>GA2-ENSUITE3</option>
+          <option>GA2-KID3</option>
+          <option>GA2-WIR3</option>
+          <option>GA2-POWDER-R</option>
+          <option>GA2-PANTRY</option>
+          <option>GA2-WC</option>
+          <option>GA2-SHOWER</option>
+          <option>GA2-TERRACE</option>
+        </optgroup>
+      </select>
+    </div>
+    <button type="button" id="copyAll">Copy All</button>
+    <p class="hint">
+      <strong>Two villas on one image:</strong> <strong>9.1 (GA1)</strong> is the <strong>left</strong> half of the plan;
+      <strong>9.2 (GA2)</strong> is the <strong>right</strong> half. Orange dashed line = center. Pick a room from the list, then click the plan to drop a pin (native size 4962×3508 px).
+    </p>
+  </div>
+
+  <div class="scroll-area" id="scrollArea">
+    <div class="plan-wrap" id="planWrap">
+      <img
+        id="plan"
+        src="assets/floor-plan-ga.png"
+        width="4962"
+        height="3508"
+        alt="GA combined floor plan"
+      />
+      <div class="plan-overlay">
+        <div class="divider-line" title="Approximate boundary between GA1 (left) and GA2 (right)"></div>
+        <div class="label-left">GA1 · 9.1 ←</div>
+        <div class="label-right">→ GA2 · 9.2</div>
+      </div>
+      <div id="dots"></div>
+    </div>
+  </div>
+
+  <div class="panels">
+    <div>
+      <h2>Click log</h2>
+      <textarea id="logOut" readonly rows="6"></textarea>
+    </div>
+    <div>
+      <h2>Pins (Apps Script–style)</h2>
+      <textarea id="pinsOut" readonly></textarea>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var plan = document.getElementById('plan');
+      var dots = document.getElementById('dots');
+      var roomSelect = document.getElementById('roomSelect');
+      var logOut = document.getElementById('logOut');
+      var pinsOut = document.getElementById('pinsOut');
+      var coordsHud = document.getElementById('coordsHud');
+      var copyAll = document.getElementById('copyAll');
+      var pins = [];
+
+      function imageXY(e) {
+        var rect = plan.getBoundingClientRect();
+        var x = Math.round(e.clientX - rect.left);
+        var y = Math.round(e.clientY - rect.top);
+        x = Math.max(0, Math.min(4961, x));
+        y = Math.max(0, Math.min(3507, y));
+        return { x: x, y: y };
+      }
+
+      function renderPins() {
+        pinsOut.value = pins
+          .map(function (p) {
+            return '{code: "' + p.code + '", x: ' + p.x + ', y: ' + p.y + '}';
+          })
+          .join(',\n');
+      }
+
+      plan.addEventListener('mousemove', function (e) {
+        var o = imageXY(e);
+        coordsHud.innerHTML =
+          '<span>Mouse</span> — X: ' + o.x + ' | Y: ' + o.y + '<br /><span>native px · 4962×3508</span>';
+      });
+
+      plan.addEventListener('mouseleave', function () {
+        coordsHud.innerHTML =
+          '<span>Mouse</span> — X: — | Y: —<br /><span>(over plan)</span>';
+      });
+
+      plan.addEventListener('click', function (e) {
+        e.preventDefault();
+        var code = roomSelect.value;
+        if (!code) {
+          alert('Choose a room from the dropdown first, then click the plan.');
+          roomSelect.focus();
+          return;
+        }
+        var o = imageXY(e);
+        var dot = document.createElement('div');
+        dot.className = 'pin-dot';
+        dot.style.left = o.x + 'px';
+        dot.style.top = o.y + 'px';
+        dot.title = code + ' (' + o.x + ', ' + o.y + ')';
+        dots.appendChild(dot);
+
+        var line =
+          'Room: ' + code + ' | X: ' + o.x + ' | Y: ' + o.y + '\n';
+        logOut.value += line;
+        logOut.scrollTop = logOut.scrollHeight;
+
+        pins.push({ code: code, x: o.x, y: o.y });
+        renderPins();
+        roomSelect.focus();
+      });
+
+      copyAll.addEventListener('click', function () {
+        var text = pinsOut.value.trim();
+        if (!text) {
+          alert('No pins recorded yet.');
+          return;
+        }
+        navigator.clipboard.writeText(text).then(
+          function () {
+            copyAll.textContent = 'Copied!';
+            setTimeout(function () {
+              copyAll.textContent = 'Copy All';
+            }, 1500);
+          },
+          function () {
+            pinsOut.select();
+            document.execCommand('copy');
+            copyAll.textContent = 'Copied (fallback)';
+            setTimeout(function () {
+              copyAll.textContent = 'Copy All';
+            }, 1500);
+          }
+        );
+      });
+    })();
+  </script>
+</body>
+</html>
