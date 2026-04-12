@@ -68,28 +68,6 @@ class App {
     this.setupLightbox();
     this.setupBuildingTabs();
 
-    // Requests tab
-    const requestsTab = document.querySelector('[data-building="requests"]');
-    if (requestsTab) {
-      requestsTab.addEventListener('click', () => {
-        document.querySelectorAll('#building-tabs .tab-btn').forEach(btn => btn.classList.remove('active'));
-        requestsTab.classList.add('active');
-        this.activeBuilding = 'requests';
-
-        document.querySelector('.map-container').classList.add('hidden');
-        document.getElementById('list-container').classList.add('hidden');
-        const viewToggle = document.querySelector('.view-toggle');
-        if (viewToggle) viewToggle.style.display = 'none';
-        const filtersRowInit = document.querySelector('.filters');
-        if (filtersRowInit) filtersRowInit.style.display = 'none';
-
-        const reqContainer = document.getElementById('requests-container');
-        if (reqContainer) reqContainer.classList.remove('hidden');
-
-        this.renderOwnerRequests();
-      });
-    }
-
     const reqStatusFilter = document.getElementById('requests-status-filter');
     if (reqStatusFilter) {
       reqStatusFilter.addEventListener('change', () => this.renderOwnerRequests());
@@ -189,7 +167,26 @@ class App {
 
   /** Switch active building tab: update floor plan/list mode and rerender. */
   async switchBuilding(buildingKey) {
-    if (buildingKey === 'requests') return;
+    if (buildingKey === 'requests') {
+      if (buildingKey === this.activeBuilding) return;
+      this.activeBuilding = 'requests';
+
+      document.querySelectorAll('#building-tabs .tab-btn').forEach(btn =>
+        btn.classList.toggle('active', btn.dataset.building === 'requests'));
+
+      document.querySelector('.map-container').classList.add('hidden');
+      document.getElementById('list-container').classList.add('hidden');
+      const viewToggle = document.querySelector('.view-toggle');
+      if (viewToggle) viewToggle.style.display = 'none';
+      const filtersRowInit = document.querySelector('.filters');
+      if (filtersRowInit) filtersRowInit.style.display = 'none';
+
+      const reqContainer = document.getElementById('requests-container');
+      if (reqContainer) reqContainer.classList.remove('hidden');
+
+      this.renderOwnerRequests();
+      return;
+    }
 
     if (buildingKey === this.activeBuilding) return;
 
@@ -372,6 +369,8 @@ class App {
 
     // === STORAGE TAB: render from storageItems ===
     if (isStorage) {
+      console.log('[renderListView] Storage mode, storageItems:', this.storageItems.length);
+
       const theadRowStorage = document.querySelector('#inventory-table thead tr');
       if (theadRowStorage) {
         theadRowStorage.innerHTML = '<th>Название</th><th>Категория</th><th>Кол-во</th><th>Статус</th><th>Фото</th><th>Комментарий</th><th>Обновлено</th>';
@@ -773,6 +772,8 @@ class App {
         this.roomIdToCode[room.id] = room.code;
         this.roomIdToZoneId[room.id] = room.zone_id;
       });
+
+      console.log('[loadData] Loaded:', this.items.length, 'items,', this.storageItems.length, 'storage,', this.ownerRequests.length, 'requests');
     } catch (e) {
       console.error('Data loading error:', e);
       window._apiUnavailable = true;
@@ -1364,4 +1365,5 @@ class App {
 let app;
 document.addEventListener('DOMContentLoaded', () => {
   app = new App();
+  window.app = app;
 });

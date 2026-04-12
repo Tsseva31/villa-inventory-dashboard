@@ -69,12 +69,23 @@ class API {
     if (!response.ok) throw new Error('API error: ' + response.status);
     const data = await response.json();
     if (data.error) throw new Error('API error: ' + data.error);
+
+    const rawStorage = data.storage_items != null ? data.storage_items : data.storageItems;
+    const storage_items = Array.isArray(rawStorage)
+      ? rawStorage
+      : (rawStorage && Array.isArray(rawStorage.storage_items) ? rawStorage.storage_items : []);
+
+    const rawOwner = data.owner_requests != null ? data.owner_requests : data.ownerRequests;
+    const owner_requests = Array.isArray(rawOwner)
+      ? rawOwner
+      : (rawOwner && Array.isArray(rawOwner.requests) ? rawOwner.requests : []);
+
     return {
       buildings: data.buildings || [],
       rooms: data.rooms || [],
       items: data.items || [],
-      storage_items: data.storage_items || [],
-      owner_requests: data.owner_requests || []
+      storage_items: storage_items,
+      owner_requests: owner_requests
     };
   }
 }
