@@ -3,7 +3,7 @@ const CONFIG = {
   // Google Apps Script Web App URL
   // Replace after deploying Apps Script
  //
-  API_URL: window.VILLA_API_URL || 'https://script.google.com/macros/s/AKfycby_rTaGMtSQps5ibqzO14kBhSItI7kEMEMhPk6CliCb9kP26aQr3VeTggzKsKZmUXI/exec',
+  API_URL: window.VILLA_API_URL || 'https://script.google.com/macros/s/AKfycbxRbRXQHmjGCF96JHm7qtX39LsFbofakyMtg2xET8btzGxh1Ch-RHE6svE75o3A1K4H/exec',
 
   // Buildings / floor tabs
   DEFAULT_BUILDING: 'mc',

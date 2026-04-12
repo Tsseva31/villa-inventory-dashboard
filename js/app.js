@@ -1,5 +1,8 @@
 // app.js — Initialization, state, UI logic
 
+// Bot deeplink base URL
+const BOT_DEEPLINK = 'https://t.me/villa_inventory_bot?start=';
+
 /** Convert Google Drive view/share URL to direct uc?id= form for reliable embedding. */
 function convertDriveUrl(url) {
   if (!url || typeof url !== 'string') return null;
@@ -870,6 +873,23 @@ class App {
 
     document.getElementById('room-title').textContent = code + ' — ' + roomCoords.name;
 
+    // Add/update room-level report button in sidebar header
+    let roomReportBtn = document.getElementById('room-report-btn');
+    if (!roomReportBtn) {
+      roomReportBtn = document.createElement('a');
+      roomReportBtn.id = 'room-report-btn';
+      roomReportBtn.target = '_blank';
+      roomReportBtn.style.cssText = 'display:inline-block;margin-top:8px;padding:8px 16px;background:#c0392b;color:#fff;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;cursor:pointer;';
+      const titleEl = document.getElementById('room-title');
+      titleEl.parentNode.insertBefore(roomReportBtn, titleEl.nextSibling);
+    }
+    const buildingConfig = this._getBuilding(this.activeBuilding);
+    const buildingId = buildingConfig ? buildingConfig.buildingId : 0;
+    const roomObj = this.rooms.find(r => r.code === code);
+    const roomId = roomObj ? roomObj.id : 0;
+    roomReportBtn.href = BOT_DEEPLINK + 'report_' + buildingId + '_' + roomId;
+    roomReportBtn.textContent = '📸 Сообщить о проблеме';
+
     sidebar.classList.remove('hidden');
 
     const list = document.getElementById('items-list');
@@ -1010,6 +1030,51 @@ class App {
       }
     });
 
+    // === ACTION BUTTONS (deeplinks to bot) ===
+    const actionsEl = document.createElement('div');
+    actionsEl.className = 'item-actions';
+    actionsEl.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid #eee;';
+
+    const itemId = item.id || item.item_id || '';
+    const roomCode = item.room_code || '';
+
+    if (itemId) {
+      // Move button
+      const moveBtn = document.createElement('a');
+      moveBtn.href = BOT_DEEPLINK + 'move_' + encodeURIComponent(itemId);
+      moveBtn.target = '_blank';
+      moveBtn.className = 'action-btn';
+      moveBtn.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:6px 12px;background:#3d5a80;color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;cursor:pointer;';
+      moveBtn.textContent = '📦 Переместить';
+      actionsEl.appendChild(moveBtn);
+
+      // Repair button
+      const repairBtn = document.createElement('a');
+      repairBtn.href = BOT_DEEPLINK + 'repair_' + encodeURIComponent(itemId);
+      repairBtn.target = '_blank';
+      repairBtn.className = 'action-btn';
+      repairBtn.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:6px 12px;background:#e67e22;color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;cursor:pointer;';
+      repairBtn.textContent = '🔧 Ремонт';
+      actionsEl.appendChild(repairBtn);
+    }
+
+    // Report button (always available — uses room context, not item)
+    if (roomCode || this.currentSidebarRoomCode) {
+      const reportBtn = document.createElement('a');
+      const buildingConfig = this._getBuilding(this.activeBuilding);
+      const buildingId = buildingConfig ? buildingConfig.buildingId : 0;
+      // Find room_id from rooms array
+      const rCode = roomCode || this.currentSidebarRoomCode;
+      const roomObj = this.rooms.find(r => r.code === rCode);
+      const roomId = roomObj ? roomObj.id : 0;
+      reportBtn.href = BOT_DEEPLINK + 'report_' + buildingId + '_' + roomId;
+      reportBtn.target = '_blank';
+      reportBtn.className = 'action-btn';
+      reportBtn.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:6px 12px;background:#c0392b;color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;cursor:pointer;';
+      reportBtn.textContent = '📸 Сообщить';
+      actionsEl.appendChild(reportBtn);
+    }
+
     // === СБОРКА ===
     itemEl.appendChild(categoryBadge);
     itemEl.appendChild(roomCodeEl);
@@ -1018,6 +1083,7 @@ class App {
     itemEl.appendChild(quantityEl);
     if (repairEl) itemEl.appendChild(repairEl);
     itemEl.appendChild(itemPhotos);
+    itemEl.appendChild(actionsEl);
 
     return itemEl;
   }
