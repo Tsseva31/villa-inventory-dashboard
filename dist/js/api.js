@@ -59,6 +59,24 @@ class API {
     const data = await this.request('getItems');
     return data.items || [];
   }
+
+  async getAll() {
+    const url = this.baseUrl
+      ? this.baseUrl + '?action=getAll&nocache=' + Date.now()
+      : null;
+    if (!url) throw new Error('API_URL not set');
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('API error: ' + response.status);
+    const data = await response.json();
+    if (data.error) throw new Error('API error: ' + data.error);
+    return {
+      buildings: data.buildings || [],
+      rooms: data.rooms || [],
+      items: data.items || [],
+      storage_items: data.storage_items || [],
+      owner_requests: data.owner_requests || []
+    };
+  }
 }
 
 const api = new API();

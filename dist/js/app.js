@@ -18,6 +18,8 @@ class App {
     this.map = null;
     this.rooms = [];
     this.items = [];
+    this.storageItems = [];
+    this.ownerRequests = [];
     this.roomsCoords = {};
     this.roomIdToCode = {};
     this.roomIdToZoneId = {};
@@ -65,6 +67,34 @@ class App {
     this.setupModal();
     this.setupLightbox();
     this.setupBuildingTabs();
+
+    // Requests tab
+    const requestsTab = document.querySelector('[data-building="requests"]');
+    if (requestsTab) {
+      requestsTab.addEventListener('click', () => {
+        document.querySelectorAll('#building-tabs .tab-btn').forEach(btn => btn.classList.remove('active'));
+        requestsTab.classList.add('active');
+        this.activeBuilding = 'requests';
+
+        document.querySelector('.map-container').classList.add('hidden');
+        document.getElementById('list-container').classList.add('hidden');
+        const viewToggle = document.querySelector('.view-toggle');
+        if (viewToggle) viewToggle.style.display = 'none';
+        const filtersRowInit = document.querySelector('.filters');
+        if (filtersRowInit) filtersRowInit.style.display = 'none';
+
+        const reqContainer = document.getElementById('requests-container');
+        if (reqContainer) reqContainer.classList.remove('hidden');
+
+        this.renderOwnerRequests();
+      });
+    }
+
+    const reqStatusFilter = document.getElementById('requests-status-filter');
+    if (reqStatusFilter) {
+      reqStatusFilter.addEventListener('change', () => this.renderOwnerRequests());
+    }
+
     this.setupViewToggle();
     this.setupRoomFilter();
     this.renderLegend();
@@ -159,7 +189,14 @@ class App {
 
   /** Switch active building tab: update floor plan/list mode and rerender. */
   async switchBuilding(buildingKey) {
+    if (buildingKey === 'requests') return;
+
     if (buildingKey === this.activeBuilding) return;
+
+    const reqContainer = document.getElementById('requests-container');
+    if (reqContainer) reqContainer.classList.add('hidden');
+    const filtersRow = document.querySelector('.filters');
+    if (filtersRow) filtersRow.style.display = '';
 
     this.activeBuilding = buildingKey;
     const mapBtn = document.querySelector('.view-btn[data-view="map"]');
@@ -333,9 +370,126 @@ class App {
       CONFIG.STORAGE_BUILDING_IDS.includes(buildingConfig.buildingCode);
     const BUILDING_NAMES = CONFIG.BUILDING_NAMES || {};
 
+    // === STORAGE TAB: render from storageItems ===
+    if (isStorage) {
+      const theadRowStorage = document.querySelector('#inventory-table thead tr');
+      if (theadRowStorage) {
+        theadRowStorage.innerHTML = '<th>Название</th><th>Категория</th><th>Кол-во</th><th>Статус</th><th>Фото</th><th>Комментарий</th><th>Обновлено</th>';
+      }
+
+      const filteredStorage = this.storageItems.filter(item => {
+        if (this.filters.category && item.category_key !== this.filters.category) return false;
+        if (this.filters.search) {
+          const s = this.filters.search.toLowerCase();
+          if (!(item.item_name || '').toLowerCase().includes(s) &&
+              !(item.comment || '').toLowerCase().includes(s) &&
+              !(item.category_key || '').toLowerCase().includes(s)) return false;
+        }
+        return true;
+      });
+
+      filteredStorage.forEach(item => {
+        const tr = document.createElement('tr');
+
+        const tdName = document.createElement('td');
+        tdName.innerHTML = '<strong>' + (item.item_name || '—') + '</strong>';
+        tr.appendChild(tdName);
+
+        const tdCat = document.createElement('td');
+        const catColor = (CONFIG.CATEGORY_COLORS && CONFIG.CATEGORY_COLORS[item.category_key]) || '#999';
+        const catIcon = (CONFIG.CATEGORY_ICONS && CONFIG.CATEGORY_ICONS[item.category_key]) || '';
+        tdCat.innerHTML = '<span style="background:' + catColor + ';color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;white-space:nowrap">' +
+          catIcon + ' ' + (item.category_key || '—') + '</span>';
+        tr.appendChild(tdCat);
+
+        const tdQty = document.createElement('td');
+        tdQty.textContent = (item.quantity || 0) + ' ' + (item.unit || 'шт');
+        tdQty.style.textAlign = 'center';
+        tr.appendChild(tdQty);
+
+        const tdStatus = document.createElement('td');
+        const isActive = item.status === 'active';
+        tdStatus.innerHTML = '<span style="background:' + (isActive ? '#27AE60' : '#E74C3C') +
+          ';color:#fff;padding:2px 8px;border-radius:4px;font-size:11px">' +
+          (isActive ? '🟢 В наличии' : '🔴 Нет в наличии') + '</span>';
+        tr.appendChild(tdStatus);
+
+        const tdPhoto = document.createElement('td');
+        const photoUrls = (item.photos || []).filter(u => u && u.startsWith('http'));
+        if (photoUrls.length) {
+          const link = document.createElement('span');
+          link.className = 'list-photo-link';
+          link.textContent = '📷 ' + photoUrls.length;
+          link.addEventListener('click', () => this.openLightbox(photoUrls, 0));
+          tdPhoto.appendChild(link);
+        } else {
+          tdPhoto.textContent = '—';
+        }
+        tr.appendChild(tdPhoto);
+
+        const tdComment = document.createElement('td');
+        const comment = item.comment || '—';
+        tdComment.textContent = comment.length > 60 ? comment.slice(0, 60) + '…' : comment;
+        tdComment.title = comment;
+        tr.appendChild(tdComment);
+
+        const tdDate = document.createElement('td');
+        tdDate.className = 'list-date';
+        if (item.updated_at) {
+          try { tdDate.textContent = new Date(item.updated_at).toLocaleDateString('ru-RU'); }
+          catch (e) { tdDate.textContent = item.updated_at; }
+        } else {
+          tdDate.textContent = '—';
+        }
+        tr.appendChild(tdDate);
+
+        tbody.appendChild(tr);
+      });
+
+      const listStatsStorage = document.getElementById('list-stats');
+      if (listStatsStorage) {
+        listStatsStorage.textContent = 'Склад: ' + filteredStorage.length + ' из ' + this.storageItems.length + ' позиций';
+      }
+
+      const chipsElStorage = document.getElementById('category-chips');
+      if (chipsElStorage) {
+        const catCounts = {};
+        this.storageItems.forEach(item => {
+          catCounts[item.category_key] = (catCounts[item.category_key] || 0) + 1;
+        });
+
+        const activeCat = this.filters.category || '';
+        let html = '<button class="chip' + (!activeCat ? ' active' : '') + '" data-cat="">Все (' + this.storageItems.length + ')</button>';
+        Object.entries(catCounts).sort((a, b) => b[1] - a[1]).forEach(([cat, count]) => {
+          const color = (CONFIG.CATEGORY_COLORS && CONFIG.CATEGORY_COLORS[cat]) || '#999';
+          const icon = (CONFIG.CATEGORY_ICONS && CONFIG.CATEGORY_ICONS[cat]) || '';
+          html += '<button class="chip' + (activeCat === cat ? ' active' : '') +
+            '" data-cat="' + cat + '" style="border-color:' + color + ';--chip-color:' + color + '">' +
+            icon + ' ' + cat + ' (' + count + ')</button>';
+        });
+        chipsElStorage.innerHTML = html;
+        chipsElStorage.style.display = '';
+
+        chipsElStorage.querySelectorAll('.chip').forEach(btn => {
+          btn.addEventListener('click', () => {
+            this.filters.category = btn.dataset.cat;
+            const catSelect = document.getElementById('filter-category');
+            if (catSelect) catSelect.value = this.filters.category;
+            this.applyFilters();
+          });
+        });
+      }
+
+      return;
+    }
+
     // Manage "Здание" column header
     const theadRow = document.querySelector('#inventory-table thead tr');
     if (theadRow) {
+      const firstHead = theadRow.querySelector('th');
+      if (firstHead && firstHead.textContent === 'Название') {
+        theadRow.innerHTML = '<th>Комната</th><th>Категория</th><th>Описание</th><th>Состояние</th><th>Кол-во</th><th>Фото</th><th>Дата</th>';
+      }
       const existingTh = theadRow.querySelector('.th-building');
       if (isAll && !existingTh) {
         const th = document.createElement('th');
@@ -358,11 +512,7 @@ class App {
     const buildingsInList = new Set();
 
     const filtered = this.items.filter(item => {
-      if (!isAll && !isStorage && !this.itemBelongsToBuilding(item)) return false;
-      if (isStorage && buildingConfig.buildingCode) {
-        const itemCode = item.room_code || this.roomIdToCode[item.room_id] || '';
-        if (!itemCode.toUpperCase().startsWith(buildingConfig.buildingCode.toUpperCase())) return false;
-      }
+      if (!isAll && !this.itemBelongsToBuilding(item)) return false;
       const norm = this.normalizeItemFields(item);
       const code = item.room_code || this.roomIdToCode[item.room_id] || '';
       const filterCat = (this.filters.category && String(this.filters.category).trim()) || '';
@@ -495,46 +645,100 @@ class App {
 
     if (isAll) this.updateStats(filtered.length, roomsInList.size);
 
-    // Render category chips for storage view
     const chipsEl = document.getElementById('category-chips');
     if (chipsEl) {
-      if (isStorage && buildingConfig.buildingCode) {
-        // Count all storage items per category (unfiltered, to show totals)
-        const catCounts = {};
-        let storageTotal = 0;
-        this.items.forEach(item => {
-          const itemCode = item.room_code || this.roomIdToCode[item.room_id] || '';
-          if (!itemCode.toUpperCase().startsWith(buildingConfig.buildingCode.toUpperCase())) return;
-          const norm = this.normalizeItemFields(item);
-          catCounts[norm.category] = (catCounts[norm.category] || 0) + 1;
-          storageTotal++;
-        });
-
-        const activeCat = this.filters.category || '';
-        let html = '<button class="chip' + (!activeCat ? ' active' : '') + '" data-cat="">Все (' + storageTotal + ')</button>';
-        Object.entries(catCounts).sort((a, b) => b[1] - a[1]).forEach(([cat, count]) => {
-          const color = (CONFIG.CATEGORY_COLORS && CONFIG.CATEGORY_COLORS[cat]) || '#999';
-          const icon = (CONFIG.CATEGORY_ICONS && CONFIG.CATEGORY_ICONS[cat]) || '';
-          html += '<button class="chip' + (activeCat === cat ? ' active' : '') +
-            '" data-cat="' + cat + '" style="border-color:' + color + ';--chip-color:' + color + '">' +
-            icon + ' ' + cat + ' (' + count + ')</button>';
-        });
-        chipsEl.innerHTML = html;
-        chipsEl.style.display = '';
-
-        chipsEl.querySelectorAll('.chip').forEach(btn => {
-          btn.addEventListener('click', () => {
-            this.filters.category = btn.dataset.cat;
-            const catSelect = document.getElementById('filter-category');
-            if (catSelect) catSelect.value = this.filters.category;
-            this.applyFilters();
-          });
-        });
-      } else {
-        chipsEl.style.display = 'none';
-        chipsEl.innerHTML = '';
-      }
+      chipsEl.style.display = 'none';
+      chipsEl.innerHTML = '';
     }
+  }
+
+  renderOwnerRequests() {
+    const listEl = document.getElementById('requests-cards');
+    if (!listEl) return;
+    listEl.innerHTML = '';
+
+    const filterVal = document.getElementById('requests-status-filter')
+      ? document.getElementById('requests-status-filter').value
+      : '';
+
+    const filtered = this.ownerRequests.filter(req => {
+      if (filterVal && req.status !== filterVal) return false;
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      listEl.innerHTML = '<div style="text-align:center;padding:40px;color:#888;">Нет запросов</div>';
+      return;
+    }
+
+    filtered.forEach(req => {
+      const card = document.createElement('div');
+      card.style.cssText = 'background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin-bottom:12px;';
+
+      const statusMap = {
+        pending:   { color: '#F39C12', label: '⏳ Ожидает' },
+        accepted:  { color: '#3498DB', label: '🔄 Принят' },
+        completed: { color: '#27AE60', label: '✅ Выполнен' },
+        rejected:  { color: '#E74C3C', label: '❌ Отклонён' }
+      };
+      const st = statusMap[req.status] || { color: '#888', label: req.status || '—' };
+
+      const header = document.createElement('div');
+      header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;';
+      header.innerHTML = '<strong style="font-size:14px;">' + (req.request_id || '—') + '</strong>' +
+        '<span style="background:' + st.color + ';color:#fff;padding:3px 10px;border-radius:4px;font-size:12px;font-weight:600">' + st.label + '</span>';
+      card.appendChild(header);
+
+      if (req.action_type) {
+        const typeEl = document.createElement('div');
+        typeEl.style.cssText = 'font-size:13px;color:#555;margin-bottom:4px;';
+        typeEl.textContent = 'Тип: ' + req.action_type;
+        card.appendChild(typeEl);
+      }
+
+      const loc = req.location_value || req.location_note || req.building_id || '';
+      if (loc) {
+        const locEl = document.createElement('div');
+        locEl.style.cssText = 'font-size:13px;color:#555;margin-bottom:4px;';
+        locEl.textContent = '📍 ' + loc;
+        card.appendChild(locEl);
+      }
+
+      const reqComment = req.comment || req.description;
+      if (reqComment) {
+        const commentEl = document.createElement('div');
+        commentEl.style.cssText = 'font-size:13px;color:#333;margin-bottom:8px;line-height:1.4;';
+        commentEl.textContent = reqComment;
+        card.appendChild(commentEl);
+      }
+
+      const photoUrls = (req.photos || []).filter(u => u && u.startsWith('http'));
+      if (photoUrls.length) {
+        const photosEl = document.createElement('div');
+        photosEl.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;';
+        photoUrls.forEach((url, idx) => {
+          const img = document.createElement('img');
+          const thumbUrl = this.getDriveThumbnail(url);
+          if (thumbUrl) {
+            img.src = thumbUrl;
+            img.style.cssText = 'width:70px;height:70px;object-fit:cover;border-radius:4px;border:1px solid #ddd;cursor:pointer;';
+            img.onclick = () => this.openLightbox(photoUrls, idx);
+            photosEl.appendChild(img);
+          }
+        });
+        card.appendChild(photosEl);
+      }
+
+      const dateEl = document.createElement('div');
+      dateEl.style.cssText = 'font-size:11px;color:#999;text-align:right;';
+      if (req.created_at) {
+        try { dateEl.textContent = new Date(req.created_at).toLocaleString('ru-RU'); }
+        catch (e) { dateEl.textContent = req.created_at; }
+      }
+      card.appendChild(dateEl);
+
+      listEl.appendChild(card);
+    });
   }
 
   /** Wire up click events for building tab buttons. */
@@ -559,8 +763,11 @@ class App {
     window._apiUnavailable = false;
 
     try {
-      this.rooms = await api.getRooms();
-      this.items = await api.getItems();
+      const data = await api.getAll();
+      this.rooms = data.rooms || [];
+      this.items = data.items || [];
+      this.storageItems = data.storage_items || [];
+      this.ownerRequests = data.owner_requests || [];
 
       this.rooms.forEach(room => {
         this.roomIdToCode[room.id] = room.code;
@@ -568,6 +775,7 @@ class App {
       });
     } catch (e) {
       console.error('Data loading error:', e);
+      window._apiUnavailable = true;
       this.showError('Failed to load data. Check API settings.');
     }
 
@@ -645,6 +853,11 @@ class App {
   }
 
   applyFilters() {
+    if (this.activeBuilding === 'requests') {
+      this.renderOwnerRequests();
+      return;
+    }
+
     const _activeBuildingConfig = (CONFIG.BUILDINGS || {})[this.activeBuilding] || {};
     const _isStorageTab = CONFIG.STORAGE_BUILDING_IDS &&
       CONFIG.STORAGE_BUILDING_IDS.includes(_activeBuildingConfig.buildingCode);
