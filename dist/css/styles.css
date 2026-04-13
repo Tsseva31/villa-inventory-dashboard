@@ -695,3 +695,34 @@ body {
   padding: 3px 10px;
   border-radius: 12px;
 }
+
+/* === Stats header === */
+.stats-header {
+  padding: 6px 16px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+}
+.stats-bar {
+  display: flex;
+  gap: 20px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+.stat-item {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+.stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #333;
+}
+.stat-label {
+  font-size: 12px;
+  color: #888;
+}
+.stat-warning .stat-value { color: #e67e22; }
+.stat-danger .stat-value { color: #e74c3c; }
+.stat-item.stat-zero .stat-value,
+.stat-item.stat-zero .stat-label { color: #ccc; }

@@ -217,6 +217,28 @@ class FloorMap {
       });
 
       this.pinsLayer.appendChild(circle);
+
+      // Badge: small red dot for active repairs/requests
+      const hasRepair = data.hasActiveRepair || false;
+      const hasRequest = data.hasActiveRequest || false;
+      if (hasRepair || hasRequest) {
+        const badgeR = Math.max(4, baseRadius * 0.4);
+        const badgeX = x + baseRadius * 0.7;
+        const badgeY = y - baseRadius * 0.7;
+        const badgeColor = hasRepair ? '#e74c3c' : '#e67e22';
+
+        const badge = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        badge.setAttribute('cx', badgeX);
+        badge.setAttribute('cy', badgeY);
+        badge.setAttribute('r', badgeR);
+        badge.setAttribute('fill', badgeColor);
+        badge.setAttribute('stroke', '#fff');
+        badge.setAttribute('stroke-width', '1.5');
+        badge.classList.add('pin-badge');
+        badge.style.pointerEvents = 'none';
+
+        this.pinsLayer.appendChild(badge);
+      }
     });
   }
 

@@ -78,6 +78,7 @@ class App {
     this.renderLegend();
 
     this.applyFilters();
+    this.updateStatsHeader();
   }
 
   /** Returns building config for a given key; falls back to default building. */
@@ -185,6 +186,7 @@ class App {
       if (reqContainer) reqContainer.classList.remove('hidden');
 
       this.renderOwnerRequests();
+      this.updateStatsHeader();
       return;
     }
 
@@ -288,6 +290,7 @@ class App {
 
     // Rerender
     this.applyFilters();
+    this.updateStatsHeader();
   }
 
   /** Toggle between map and list view modes. */
@@ -875,9 +878,28 @@ class App {
     let totalItems = 0;
     let visibleRooms = 0;
 
+    // Pre-compute rooms with active owner requests for badge display
+    const roomsWithActiveRequests = new Set();
+    (this.ownerRequests || []).forEach(req => {
+      const st = (req.status || '').toLowerCase();
+      if (st !== 'pending' && st !== 'in_progress' && st !== 'accepted') return;
+      const reqRoomCode = this.roomIdToCode[req.room_id] || '';
+      if (reqRoomCode) roomsWithActiveRequests.add(reqRoomCode);
+    });
+
     Object.keys(this.roomsCoords).forEach(code => {
       if (this.filters.room && code !== this.filters.room) {
-        roomsData[code] = { items: [], dominantCategory: 'empty' };
+        const allRoomItemsSkipped = (itemsByRoom[code] || []);
+        const hasRepairSkipped = allRoomItemsSkipped.some(item => {
+          const rs = (item.repair_status || '').toLowerCase();
+          return rs === 'pending' || rs === 'in_progress' || rs === 'assigned';
+        });
+        roomsData[code] = {
+          items: [],
+          dominantCategory: 'empty',
+          hasActiveRepair: hasRepairSkipped,
+          hasActiveRequest: roomsWithActiveRequests.has(code),
+        };
         return;
       }
 
@@ -899,9 +921,19 @@ class App {
         return true;
       });
 
+      // Check for active repairs in this room's items (unfiltered — check ALL items, not just filtered)
+      const allRoomItems = (itemsByRoom[code] || []);
+      const hasActiveRepair = allRoomItems.some(item => {
+        const rs = (item.repair_status || '').toLowerCase();
+        return rs === 'pending' || rs === 'in_progress' || rs === 'assigned';
+      });
+      const hasActiveRequest = roomsWithActiveRequests.has(code);
+
       roomsData[code] = {
         items: items,
-        dominantCategory: this.getDominantCategory(items)
+        dominantCategory: this.getDominantCategory(items),
+        hasActiveRepair: hasActiveRepair,
+        hasActiveRequest: hasActiveRequest,
       };
 
       totalItems += items.length;
@@ -1347,6 +1379,84 @@ class App {
   updateStats(itemsCount, roomsCount) {
     document.getElementById('stats').textContent =
       'Showing: ' + itemsCount + ' items in ' + roomsCount + ' rooms';
+  }
+
+  updateStatsHeader() {
+    const header = document.getElementById('stats-header');
+    if (!header) return;
+
+    const activeKey = this.activeBuilding;
+
+    // Hide for special tabs
+    if (activeKey === 'requests' || activeKey === 'str') {
+      header.style.display = 'none';
+      return;
+    }
+
+    header.style.display = '';
+    const isAll = activeKey === 'all';
+
+    // Count items for this building
+    let buildingItems;
+    if (isAll) {
+      buildingItems = this.items || [];
+    } else {
+      buildingItems = (this.items || []).filter(item => this.itemBelongsToBuilding(item));
+    }
+
+    // Count rooms that have items
+    const roomCodes = new Set();
+    buildingItems.forEach(item => {
+      const code = item.room_code || this.roomIdToCode[item.room_id] || '';
+      if (code) roomCodes.add(code);
+    });
+
+    // Count active repairs
+    const repairs = buildingItems.filter(item => {
+      const rs = (item.repair_status || '').toLowerCase();
+      return rs === 'pending' || rs === 'in_progress' || rs === 'assigned';
+    }).length;
+
+    // Count active owner requests for this building
+    let activeRequests;
+    if (isAll) {
+      activeRequests = (this.ownerRequests || []).filter(req => {
+        const st = (req.status || '').toLowerCase();
+        return st === 'pending' || st === 'in_progress' || st === 'accepted';
+      });
+    } else {
+      const building = this._getBuilding(activeKey);
+      const buildingId = building ? building.buildingId : null;
+      activeRequests = (this.ownerRequests || []).filter(req => {
+        const st = (req.status || '').toLowerCase();
+        if (st !== 'pending' && st !== 'in_progress' && st !== 'accepted') return false;
+        if (buildingId === null) return true;
+        const reqBid = parseInt(req.building_id, 10);
+        return !isNaN(reqBid) && reqBid === buildingId;
+      });
+    }
+
+    // Update DOM
+    const setValue = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val;
+    };
+    setValue('stat-total-items', buildingItems.length);
+    setValue('stat-total-rooms', roomCodes.size);
+    setValue('stat-repairs', repairs);
+    setValue('stat-requests', activeRequests.length);
+
+    // Dim zeros
+    ['stat-items-wrap', 'stat-rooms-wrap', 'stat-repairs-wrap', 'stat-requests-wrap'].forEach(id => {
+      const wrap = document.getElementById(id);
+      if (!wrap) return;
+      const val = wrap.querySelector('.stat-value');
+      if (val && val.textContent === '0') {
+        wrap.classList.add('stat-zero');
+      } else {
+        wrap.classList.remove('stat-zero');
+      }
+    });
   }
 
   showLoading() {
