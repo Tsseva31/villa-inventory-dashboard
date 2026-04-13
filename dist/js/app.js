@@ -255,13 +255,19 @@ class App {
         this.showError('План помещений в подготовке');
         this.map.setRooms({});
         this.roomsCoords = {};
-      } else if (wasForced) {
-        // Restore map view after forced-list mode (all/storage/no-floor-plan)
-        this.viewMode = 'map';
-        document.querySelectorAll('.view-btn').forEach(b =>
-          b.classList.toggle('active', b.dataset.view === 'map'));
-        document.querySelector('.map-container').classList.remove('hidden');
-        document.getElementById('list-container').classList.add('hidden');
+      } else {
+        // Always restore correct view containers (fixes hidden state after requests/storage/all tabs)
+        if (this.viewMode === 'map') {
+          document.querySelectorAll('.view-btn').forEach(b =>
+            b.classList.toggle('active', b.dataset.view === 'map'));
+          document.querySelector('.map-container').classList.remove('hidden');
+          document.getElementById('list-container').classList.add('hidden');
+        } else {
+          document.querySelectorAll('.view-btn').forEach(b =>
+            b.classList.toggle('active', b.dataset.view === 'list'));
+          document.querySelector('.map-container').classList.add('hidden');
+          document.getElementById('list-container').classList.remove('hidden');
+        }
       }
 
       if (!noFloorPlan) {
@@ -883,7 +889,7 @@ class App {
     (this.ownerRequests || []).forEach(req => {
       const st = (req.status || '').toLowerCase();
       if (st !== 'pending' && st !== 'in_progress' && st !== 'accepted') return;
-      const reqRoomCode = this.roomIdToCode[req.room_id] || '';
+      const reqRoomCode = this.roomIdToCode[String(req.room_id)] || '';
       if (reqRoomCode) roomsWithActiveRequests.add(reqRoomCode);
     });
 
