@@ -218,24 +218,39 @@ class FloorMap {
 
       this.pinsLayer.appendChild(circle);
 
-      // Badge: small red dot for active repairs/requests
-      const hasRepair = data.hasActiveRepair || false;
-      const hasRequest = data.hasActiveRequest || false;
-      if (hasRepair || hasRequest) {
-        const badgeR = Math.max(4, baseRadius * 0.4);
-        const badgeX = x + baseRadius * 0.7;
-        const badgeY = y - baseRadius * 0.7;
-        const badgeColor = hasRepair ? '#e74c3c' : '#e67e22';
+      // Badge: repair (red, higher priority) or owner request (orange)
+      if (data.hasActiveRepair || data.hasActiveRequest) {
+        const badgeColor = data.hasActiveRepair ? '#e74c3c' : '#e67e22';
+        const badgeIcon = data.hasActiveRepair ? '🔧' : '📋';
+        const badgeRadius = Math.max(baseRadius * 0.45, 4);
+        const badgeOffsetX = baseRadius * 0.8;
+        const badgeOffsetY = baseRadius * 0.8;
 
         const badge = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        badge.setAttribute('cx', badgeX);
-        badge.setAttribute('cy', badgeY);
-        badge.setAttribute('r', badgeR);
+        badge.setAttribute('cx', x + badgeOffsetX);
+        badge.setAttribute('cy', y - badgeOffsetY);
+        badge.setAttribute('r', badgeRadius);
         badge.setAttribute('fill', badgeColor);
         badge.setAttribute('stroke', '#fff');
         badge.setAttribute('stroke-width', '1.5');
-        badge.classList.add('pin-badge');
-        badge.style.pointerEvents = 'none';
+        badge.style.filter = 'drop-shadow(0px 1px 2px rgba(0,0,0,0.4))';
+        badge.style.cursor = 'pointer';
+
+        badge.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.handlePinClick(code);
+        });
+
+        badge.addEventListener('mouseenter', (e) => {
+          badge.setAttribute('r', badgeRadius * 1.3);
+          const label = data.hasActiveRepair ? 'Активный ремонт' : 'Запрос владельца';
+          this.showTooltip(e, code, label);
+        });
+
+        badge.addEventListener('mouseleave', () => {
+          badge.setAttribute('r', badgeRadius);
+          this.hideTooltip();
+        });
 
         this.pinsLayer.appendChild(badge);
       }
