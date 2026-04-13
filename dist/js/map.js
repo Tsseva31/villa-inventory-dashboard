@@ -222,9 +222,11 @@ class FloorMap {
       if (data.hasActiveRepair || data.hasActiveRequest) {
         const badgeColor = data.hasActiveRepair ? '#e74c3c' : '#e67e22';
         const badgeIcon = data.hasActiveRepair ? '🔧' : '📋';
-        const badgeRadius = Math.max(baseRadius * 0.45, 4);
-        const badgeOffsetX = baseRadius * 0.8;
-        const badgeOffsetY = baseRadius * 0.8;
+        const badgeRadius = 6;
+        const gap = 2;
+        const diag = (baseRadius + badgeRadius + gap) * 0.71;
+        const badgeOffsetX = diag;
+        const badgeOffsetY = diag;
 
         const badge = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
         badge.setAttribute('cx', x + badgeOffsetX);
