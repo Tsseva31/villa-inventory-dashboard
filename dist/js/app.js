@@ -256,18 +256,12 @@ class App {
         this.map.setRooms({});
         this.roomsCoords = {};
       } else {
-        // Always restore correct view containers (fixes hidden state after requests/storage/all tabs)
-        if (this.viewMode === 'map') {
-          document.querySelectorAll('.view-btn').forEach(b =>
-            b.classList.toggle('active', b.dataset.view === 'map'));
-          document.querySelector('.map-container').classList.remove('hidden');
-          document.getElementById('list-container').classList.add('hidden');
-        } else {
-          document.querySelectorAll('.view-btn').forEach(b =>
-            b.classList.toggle('active', b.dataset.view === 'list'));
-          document.querySelector('.map-container').classList.add('hidden');
-          document.getElementById('list-container').classList.remove('hidden');
-        }
+        // Always restore map view after any forced-list tab (all/storage/no-floor-plan/requests)
+        this.viewMode = 'map';
+        document.querySelectorAll('.view-btn').forEach(b =>
+          b.classList.toggle('active', b.dataset.view === 'map'));
+        document.querySelector('.map-container').classList.remove('hidden');
+        document.getElementById('list-container').classList.add('hidden');
       }
 
       if (!noFloorPlan) {
