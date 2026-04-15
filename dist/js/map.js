@@ -222,8 +222,8 @@ class FloorMap {
       if (data.hasActiveRepair || data.hasActiveRequest) {
         const badgeColor = data.hasActiveRepair ? '#e74c3c' : '#e67e22';
         const badgeIcon = data.hasActiveRepair ? '🔧' : '📋';
-        const badgeRadius = 6;
-        const gap = 2;
+        const badgeRadius = Math.max(baseRadius * 0.7, 10);
+        const gap = 3;
         const diag = (baseRadius + badgeRadius + gap) * 0.71;
         const badgeOffsetX = diag;
         const badgeOffsetY = diag;
@@ -234,7 +234,7 @@ class FloorMap {
         badge.setAttribute('r', badgeRadius);
         badge.setAttribute('fill', badgeColor);
         badge.setAttribute('stroke', '#fff');
-        badge.setAttribute('stroke-width', '1.5');
+        badge.setAttribute('stroke-width', '2');
         badge.style.filter = 'drop-shadow(0px 1px 2px rgba(0,0,0,0.4))';
         badge.style.cursor = 'pointer';
 
@@ -254,6 +254,7 @@ class FloorMap {
           this.hideTooltip();
         });
 
+        badge.style.pointerEvents = 'auto';
         this.pinsLayer.appendChild(badge);
       }
     });
