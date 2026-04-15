@@ -240,7 +240,11 @@ class FloorMap {
 
         badge.addEventListener('click', (e) => {
           e.stopPropagation();
-          this.handlePinClick(code);
+          if (!data.hasActiveRepair && data.hasActiveRequest && this.onRequestBadgeClick) {
+            this.onRequestBadgeClick(code);
+          } else {
+            this.handlePinClick(code);
+          }
         });
 
         badge.addEventListener('mouseenter', (e) => {

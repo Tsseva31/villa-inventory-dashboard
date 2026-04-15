@@ -41,6 +41,7 @@ class App {
   async init() {
     this.map = new FloorMap('map-container');
     this.map.onRoomSelect = (code) => this.showRoomDetails(code);
+    this.map.onRequestBadgeClick = (code) => this.navigateToRequestForRoom(code);
 
     const building = this._getBuilding(this.activeBuilding);
 
@@ -675,6 +676,8 @@ class App {
 
     filtered.forEach(req => {
       const card = document.createElement('div');
+      card.className = 'request-card';
+      card.dataset.roomId = String(req.room_id || '');
       card.style.cssText = 'background:#fff;border:1px solid #e0e0e0;border-radius:8px;padding:16px;margin-bottom:12px;';
 
       const statusMap = {
@@ -741,6 +744,42 @@ class App {
 
       listEl.appendChild(card);
     });
+  }
+
+  /**
+   * Navigate to the Requests tab and highlight request cards for a specific room.
+   * Called when user clicks an owner-request badge on a floor plan pin.
+   */
+  navigateToRequestForRoom(roomCode) {
+    const room = this.rooms.find(r => r.code === roomCode);
+    const targetRoomId = room ? String(room.id) : '';
+
+    this.switchBuilding('requests');
+
+    setTimeout(() => {
+      const reqContainer = document.getElementById('requests-list') || document.getElementById('requests-cards');
+      if (!reqContainer) return;
+
+      const cards = reqContainer.querySelectorAll('.request-card');
+      let firstMatch = null;
+
+      cards.forEach(card => {
+        const cardRoomId = card.dataset.roomId || '';
+        if (targetRoomId && cardRoomId === targetRoomId) {
+          card.style.outline = '3px solid #e67e22';
+          card.style.outlineOffset = '2px';
+          card.style.transition = 'outline 0.3s ease';
+          if (!firstMatch) firstMatch = card;
+        } else {
+          card.style.outline = '';
+          card.style.outlineOffset = '';
+        }
+      });
+
+      if (firstMatch) {
+        firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 100);
   }
 
   /** Wire up click events for building tab buttons. */
