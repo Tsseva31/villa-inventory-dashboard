@@ -161,6 +161,13 @@ class FloorMap {
     const xScale = CONFIG.COORD_X_SCALE || 1.0;
     const yScale = CONFIG.COORD_Y_SCALE || 1.0;
 
+    var activeKey =
+      (typeof window !== 'undefined' && window.app && window.app.activeBuilding) ||
+      CONFIG.DEFAULT_BUILDING ||
+      'mc';
+    var currentBuildingConfig = (CONFIG.BUILDINGS || {})[activeKey] || {};
+    var pinScale = currentBuildingConfig.pinScale != null ? currentBuildingConfig.pinScale : 1.0;
+
     const roomCodes = Object.keys(this.rooms);
     console.log('[PIN] 4. map.js renderPins: rooms (pins) count =', roomCodes.length, '| coords in viewBox space (0 0 ' + (this.floorPlanWidth || CONFIG.FLOOR_PLAN_WIDTH) + ' ' + (this.floorPlanHeight || CONFIG.FLOOR_PLAN_HEIGHT) + ')');
     console.log('[PIN] Calibration: xOffset=' + xOffset, 'yOffset=' + yOffset, 'xScale=' + xScale, 'yScale=' + yScale);
@@ -182,7 +189,7 @@ class FloorMap {
 
       console.log('[PIN] Room "' + code + '" → rooms.json x:' + coords.x + ', y:' + coords.y + ' → viewBox x:' + Math.round(x) + ', y:' + Math.round(y) + ' | items:' + (data.items ? data.items.length : 0));
 
-      const baseRadius = CONFIG.PIN_SIZE / 2;
+      const baseRadius = (CONFIG.PIN_SIZE / 2) * pinScale;
 
       const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       circle.setAttribute('cx', x);

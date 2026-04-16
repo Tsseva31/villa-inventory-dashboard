@@ -72,7 +72,8 @@ const CONFIG = {
       planWidth: 4962,
       planHeight: 3508,
       hasFloorPlan: true,
-      zoneFilter: null
+      zoneFilter: null,
+      pinScale: 1.8
     },
     'ga2': {
       buildingId: 5,
@@ -83,7 +84,8 @@ const CONFIG = {
       planWidth: 4962,
       planHeight: 3508,
       hasFloorPlan: true,
-      zoneFilter: null
+      zoneFilter: null,
+      pinScale: 1.8
     },
     'ent': {
       buildingId: 6,
