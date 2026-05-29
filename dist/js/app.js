@@ -931,7 +931,7 @@ class App {
         const allRoomItemsSkipped = (itemsByRoom[code] || []);
         const hasRepairSkipped = allRoomItemsSkipped.some(item => {
           const rs = (item.repair_status || '').toLowerCase();
-          return rs === 'pending' || rs === 'in_progress' || rs === 'assigned';
+          return rs === 'pending' || rs === 'in_progress' || rs === 'assigned' || rs === 'reassigned';
         });
         roomsData[code] = {
           items: [],
@@ -964,7 +964,7 @@ class App {
       const allRoomItems = (itemsByRoom[code] || []);
       const hasActiveRepair = allRoomItems.some(item => {
         const rs = (item.repair_status || '').toLowerCase();
-        return rs === 'pending' || rs === 'in_progress' || rs === 'assigned';
+        return rs === 'pending' || rs === 'in_progress' || rs === 'assigned' || rs === 'reassigned';
       });
       const hasActiveRequest = roomsWithActiveRequests.has(code);
 
@@ -1273,6 +1273,7 @@ class App {
       const badgeMap = {
         pending:     { icon: '🔧', color: '#F39C12', label: 'Ремонт ожидает' },
         in_progress: { icon: '🔧', color: '#E67E22', label: 'В ремонте' },
+        reassigned:  { icon: '🔄', color: '#E67E22', label: 'Переназначена' },
         done:        { icon: '✅', color: '#27AE60', label: 'Ремонт завершён' },
       };
       const b = badgeMap[norm.repair_status] || { icon: '🔧', color: '#F39C12', label: norm.repair_status };
@@ -1453,7 +1454,7 @@ class App {
     // Count active repairs
     const repairs = buildingItems.filter(item => {
       const rs = (item.repair_status || '').toLowerCase();
-      return rs === 'pending' || rs === 'in_progress' || rs === 'assigned';
+      return rs === 'pending' || rs === 'in_progress' || rs === 'assigned' || rs === 'reassigned';
     }).length;
 
     // Count active owner requests for this building
