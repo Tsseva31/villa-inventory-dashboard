@@ -1,0 +1,12 @@
+﻿[
+  {
+    "id": "living-room",
+    "name": "Гостиная",
+    "floor": "upper"
+  },
+  {
+    "id": "bedroom-1",
+    "name": "Спальня 1",
+    "floor": "upper"
+  }
+]

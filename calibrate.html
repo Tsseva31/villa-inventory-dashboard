@@ -240,15 +240,14 @@
   <label>Floor plan:
     <select id="planSelect">
       <option value="assets/floor-plan-mc-1f.png">MC</option>
-      <option value="assets/floor-plan-mv-1f.png">MV Living</option>
-      <option value="assets/floor-plan-mv-2f.png">MV Spa</option>
+      <option value="assets/floor-plan-mv-2f.png">MV Living</option>
+      <option value="assets/floor-plan-mv-1f.png">MV Spa</option>
       <option value="assets/floor-plan-sg-lower.png">SG Lower</option>
       <option value="assets/floor-plan-sg-upper.png">SG Upper</option>
+      <option value="ga1">GA1</option>
+      <option value="ga2">GA2</option>
       <option value="assets/floor-plan-ent.png">ENT</option>
     </select>
-  </label>
-  <label>API URL:
-    <input id="apiUrl" type="text" style="width:320px" placeholder="https://script.google.com/macros/s/.../exec">
   </label>
   <button onclick="loadData()">Load</button>
   <button class="export-btn" onclick="exportCSV()">📥 Export CSV</button>
@@ -287,6 +286,7 @@
   Export CSV → paste Pin_X, Pin_Y into Sheets
 </div>
 
+<script src="js/config.js"></script>
 <script>
 // ─── State ───
 let rooms = [];
@@ -301,20 +301,21 @@ let currentScale = 1;
 // ─── Config mapping (tab -> building_id + zoneFilter) ───
 const TAB_CONFIG = {
   'assets/floor-plan-mc-1f.png':    { buildingId: 1, zoneFilter: null,  label: 'MC' },
-  'assets/floor-plan-mv-1f.png':    { buildingId: 2, zoneFilter: 201,   label: 'MV Living' },
-  'assets/floor-plan-mv-2f.png':    { buildingId: 2, zoneFilter: 202,   label: 'MV Spa' },
+  'assets/floor-plan-mv-2f.png':    { buildingId: 2, zoneFilter: 201,   label: 'MV Living' },
+  'assets/floor-plan-mv-1f.png':    { buildingId: 2, zoneFilter: 202,   label: 'MV Spa' },
   'assets/floor-plan-sg-lower.png': { buildingId: 3, zoneFilter: 301,   label: 'SG Lower' },
   'assets/floor-plan-sg-upper.png': { buildingId: 3, zoneFilter: 302,   label: 'SG Upper' },
+  'ga1':                            { buildingId: 4, zoneFilter: null,  label: 'GA1', floorPlan: 'assets/floor-plan-ga.png' },
+  'ga2':                            { buildingId: 5, zoneFilter: null,  label: 'GA2', floorPlan: 'assets/floor-plan-ga.png' },
   'assets/floor-plan-ent.png':      { buildingId: 6, zoneFilter: null,  label: 'ENT' },
 };
 
 // ─── Load data from API ───
 async function loadData() {
-  const url = document.getElementById('apiUrl').value.trim();
-  if (!url) { alert('Enter API URL'); return; }
-  
+  if (!CONFIG || !CONFIG.API_URL) { alert('CONFIG.API_URL missing — check js/config.js'); return; }
+
   try {
-    const resp = await fetch(url + '?action=getAll');
+    const resp = await fetch(CONFIG.API_URL + '?action=getAll');
     const data = await resp.json();
     
     rooms = data.rooms || [];
@@ -348,7 +349,7 @@ function onPlanChange() {
   
   // Load image
   const img = document.getElementById('floorPlanImg');
-  img.src = plan;
+  img.src = config.floorPlan || plan;
   currentScale = 1;
   document.getElementById('mapContainer').style.transform = '';
   
@@ -567,9 +568,13 @@ function exportCSV() {
   let csv = 'ID,Номер,Название,Pin_X,Pin_Y\n';
   
   rooms.forEach(r => {
-    if (pins[r.id]) {
-      csv += `${r.id},${r.code},${r.name},${pins[r.id].x},${pins[r.id].y}\n`;
+    if (Number(r.zone_id) === 0 || !pins[r.id]) return;
+    if (currentZoneFilter) {
+      if (Number(r.zone_id) !== currentZoneFilter) return;
+    } else if (getZoneBuildingId(Number(r.zone_id)) !== currentBuildingId) {
+      return;
     }
+    csv += `${r.id},${r.code},${r.name},${pins[r.id].x},${pins[r.id].y}\n`;
   });
   
   const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -587,16 +592,9 @@ document.getElementById('planSelect').addEventListener('change', onPlanChange);
 // ─── Window resize ───
 window.addEventListener('resize', () => setTimeout(renderPins, 100));
 
-// ─── Init: try to load saved API URL ───
-(function() {
-  const savedUrl = localStorage.getItem('villa_api_url');
-  if (savedUrl) document.getElementById('apiUrl').value = savedUrl;
-  
-  // Save URL on load
-  document.querySelector('button').addEventListener('click', () => {
-    localStorage.setItem('villa_api_url', document.getElementById('apiUrl').value.trim());
-  });
-})();
+// ─── Init: load rooms from API on open ───
+onPlanChange();
+loadData();
 </script>
 </body>
 </html>
