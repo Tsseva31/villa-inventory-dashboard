@@ -42,7 +42,7 @@ class App {
 
   async init() {
     this.map = new FloorMap('map-container');
-    this.map.onRoomSelect = (code) => this.showRoomDetails(code);
+    this.map.onRoomSelect = (code) => this.openRoomView(code);
     this.map.onRequestBadgeClick = (code) => this.navigateToRequestForRoom(code);
 
     const building = this._getBuilding(this.activeBuilding);
@@ -66,7 +66,7 @@ class App {
     }
 
     this.setupFilters();
-    this.setupSidebar();
+    this.setupRoomView();
     this.setupModal();
     this.setupLightbox();
     this.setupBuildingTabs();
@@ -172,8 +172,15 @@ class App {
   /** Switch active building tab: update floor plan/list mode and rerender. */
   async switchBuilding(buildingKey) {
     if (buildingKey === 'requests') {
+      document.getElementById('room-view-container')?.classList.add('hidden');
+      if (this.viewMode === 'room') {
+        this.map.selectedCode = null;
+        this.currentSidebarRoomCode = null;
+      }
+
       if (buildingKey === this.activeBuilding) return;
       this.activeBuilding = 'requests';
+      this.viewMode = 'list';
 
       document.querySelectorAll('#building-tabs .tab-btn').forEach(btn =>
         btn.classList.toggle('active', btn.dataset.building === 'requests'));
@@ -194,6 +201,12 @@ class App {
     }
 
     if (buildingKey === this.activeBuilding) return;
+
+    document.getElementById('room-view-container')?.classList.add('hidden');
+    if (this.viewMode === 'room') {
+      this.map.selectedCode = null;
+      this.currentSidebarRoomCode = null;
+    }
 
     const reqContainer = document.getElementById('requests-container');
     if (reqContainer) reqContainer.classList.add('hidden');
@@ -283,9 +296,6 @@ class App {
     if (roomSelect) roomSelect.value = '';
     this.updateRoomFilterOptions();
 
-    // Close sidebar
-    document.getElementById('sidebar').classList.add('hidden');
-
     // Update tab highlight
     document.querySelectorAll('#building-tabs .tab-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.building === buildingKey);
@@ -303,6 +313,13 @@ class App {
         if (btn.disabled) return;
         const view = btn.dataset.view;
         if (view === this.viewMode) return;
+
+        if (this.viewMode === 'room') {
+          document.getElementById('room-view-container')?.classList.add('hidden');
+          this.map.selectedCode = null;
+          this.currentSidebarRoomCode = null;
+        }
+
         this.viewMode = view;
         document.querySelectorAll('.view-btn').forEach(b =>
           b.classList.toggle('active', b.dataset.view === view));
@@ -1031,26 +1048,23 @@ class App {
     const selectedCategory = categorySelect.value;
     const selectedCondition = conditionSelect.value;
 
-    const items = document.querySelectorAll('.items-list .item-card, .items-list .item');
-    let visibleCount = 0;
+    if (this.viewMode !== 'room') return;
 
-    items.forEach(card => {
-      const itemCategory = card.dataset.category || '';
-      const itemCondition = card.dataset.condition || '';
+    const rows = document.querySelectorAll('#room-view-list .room-view-item-row');
+    rows.forEach(row => {
+      const itemCategory = row.dataset.category || '';
+      const itemCondition = row.dataset.condition || '';
 
       const categoryMatch = !selectedCategory || selectedCategory === '' || itemCategory === selectedCategory;
       const conditionMatch = !selectedCondition || selectedCondition === '' || itemCondition === selectedCondition;
+      const visible = categoryMatch && conditionMatch;
 
-      if (categoryMatch && conditionMatch) {
-        card.style.display = '';
-        visibleCount++;
-      } else {
-        card.style.display = 'none';
+      row.style.display = visible ? '' : 'none';
+      const next = row.nextElementSibling;
+      if (next && next.classList.contains('room-view-item-detail')) {
+        next.style.display = visible ? '' : 'none';
       }
     });
-
-    const countEl = document.getElementById('items-count');
-    if (countEl) countEl.textContent = visibleCount + ' items';
   }
 
   setupFilters() {
@@ -1079,26 +1093,26 @@ class App {
     document.getElementById('filter-category').addEventListener('change', (e) => {
       this.filters.category = e.target.value;
       this.applyFilters();
-      if (this.sidebar && !this.sidebar.classList.contains('hidden')) this.filterItems();
+      if (this.viewMode === 'room') this.filterItems();
     });
 
     document.getElementById('filter-condition').addEventListener('change', (e) => {
       this.filters.condition = e.target.value;
       this.applyFilters();
-      if (this.sidebar && !this.sidebar.classList.contains('hidden')) this.filterItems();
+      if (this.viewMode === 'room') this.filterItems();
     });
 
     document.getElementById('filter-search').addEventListener('input', (e) => {
       this.filters.search = e.target.value.trim();
       this.applyFilters();
-      if (this.sidebar && !this.sidebar.classList.contains('hidden')) this.filterItems();
     });
   }
 
-  setupSidebar() {
-    document.getElementById('sidebar-close').addEventListener('click', () => {
-      document.getElementById('sidebar').classList.add('hidden');
-    });
+  setupRoomView() {
+    const backBtn = document.getElementById('room-view-back');
+    if (backBtn) {
+      backBtn.addEventListener('click', () => this.exitRoomView());
+    }
   }
 
   setupModal() {
@@ -1109,13 +1123,6 @@ class App {
     document.getElementById('photo-modal').addEventListener('click', (e) => {
       if (e.target.id === 'photo-modal') {
         document.getElementById('photo-modal').classList.add('hidden');
-      }
-    });
-
-    document.getElementById('items-list').addEventListener('click', (e) => {
-      const thumb = e.target.closest('.item-thumb') || e.target.closest('.item-photo');
-      if (thumb && thumb.dataset.photoUrl) {
-        this.showPhoto(thumb.dataset.photoUrl);
       }
     });
   }
@@ -1173,55 +1180,139 @@ class App {
     return fileId ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1200' : normalized;
   }
 
-  showRoomDetails(code) {
-    const sidebar = document.getElementById('sidebar');
-    this.sidebar = sidebar;
+  openRoomView(code) {
+    this.viewMode = 'room';
     this.currentSidebarRoomCode = code;
+
+    document.querySelector('.map-container')?.classList.add('hidden');
+    document.getElementById('list-container')?.classList.add('hidden');
+    document.getElementById('requests-container')?.classList.add('hidden');
+    document.getElementById('room-view-container')?.classList.remove('hidden');
+
+    this.renderRoomView(code);
+  }
+
+  renderRoomView(code) {
     const roomCoords = this.roomsCoords[code] || { name: code };
-    // Show ALL items in the room when a room is clicked — do not apply global filters.
-    // Users expect to see the full room inventory. Filters only affect the map (which rooms/pins are visible).
-    const byRoom = this.getItemsByRoom();
-    const roomItems = byRoom[code] || [];
+    const titleEl = document.getElementById('room-view-title');
+    if (titleEl) titleEl.textContent = code + ' — ' + roomCoords.name;
 
-    document.getElementById('room-title').textContent = code + ' — ' + roomCoords.name;
+    const listEl = document.getElementById('room-view-list');
+    if (!listEl) return;
+    listEl.innerHTML = '';
 
-    // Add/update room-level report button in sidebar header
-    let roomReportBtn = document.getElementById('room-report-btn');
-    if (!roomReportBtn) {
-      roomReportBtn = document.createElement('a');
-      roomReportBtn.id = 'room-report-btn';
-      roomReportBtn.target = '_blank';
-      roomReportBtn.style.cssText = 'display:inline-block;margin-top:8px;padding:8px 16px;background:#c0392b;color:#fff;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;cursor:pointer;';
-      const titleEl = document.getElementById('room-title');
-      titleEl.parentNode.insertBefore(roomReportBtn, titleEl.nextSibling);
-    }
-    const buildingConfig = this._getBuilding(this.activeBuilding);
-    const buildingId = buildingConfig ? buildingConfig.buildingId : 0;
-    const roomObj = this.rooms.find(r => r.code === code);
-    const roomId = roomObj ? roomObj.id : 0;
-    roomReportBtn.href = BOT_DEEPLINK + 'report_' + buildingId + '_' + roomId;
-    roomReportBtn.textContent = '📸 Сообщить о проблеме';
-
-    sidebar.classList.remove('hidden');
-
-    const list = document.getElementById('items-list');
-    list.innerHTML = '';
+    const roomItems = this.getItemsByRoom()[code] || [];
 
     if (roomItems.length === 0) {
-      list.innerHTML = '<div class="no-items">No items</div>';
-      document.getElementById('items-count').textContent = '0 items';
-    } else {
-      roomItems.forEach(item => {
-        try {
-          const itemEl = this.createItemElement(item);
-          list.appendChild(itemEl);
-        } catch (err) {
-          console.error('[App] createItemElement failed:', item.id, err);
-        }
-      });
-      // Do NOT call filterItems() — sidebar shows full room inventory regardless of map filters.
-      document.getElementById('items-count').textContent = roomItems.length + ' items';
+      listEl.innerHTML = '<div class="room-view-empty">No items</div>';
+      return;
     }
+
+    roomItems.forEach(item => {
+      const norm = this.normalizeItemFields(item);
+      const row = document.createElement('div');
+      row.className = 'room-view-item-row';
+      row.dataset.category = norm.category;
+      row.dataset.condition = norm.condition || '';
+
+      const thumbWrap = document.createElement('div');
+      thumbWrap.className = 'room-view-item-thumb';
+      const photoUrl = this._getFirstItemPhotoUrl(item);
+      if (photoUrl) {
+        const img = document.createElement('img');
+        const thumbSrc = this.getDriveThumbnail(photoUrl);
+        if (thumbSrc) img.src = thumbSrc;
+        img.alt = '';
+        img.onerror = () => {
+          img.remove();
+          thumbWrap.classList.add('room-view-item-thumb--placeholder');
+          if (!thumbWrap.textContent) thumbWrap.textContent = '📷';
+        };
+        thumbWrap.appendChild(img);
+      } else {
+        thumbWrap.classList.add('room-view-item-thumb--placeholder');
+        thumbWrap.textContent = '📷';
+      }
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'room-view-item-name';
+      const desc = item.description || 'Без описания';
+      nameEl.textContent = desc.length > 120 ? desc.slice(0, 120) + '…' : desc;
+      nameEl.title = desc;
+
+      const condEl = document.createElement('span');
+      condEl.className = 'room-view-item-condition';
+      const condColor = (CONFIG.CONDITION_COLORS && CONFIG.CONDITION_COLORS[norm.condition]) || '#888';
+      condEl.style.backgroundColor = condColor;
+      condEl.textContent = norm.condition || '—';
+
+      row.appendChild(thumbWrap);
+      row.appendChild(nameEl);
+      row.appendChild(condEl);
+
+      row.addEventListener('click', () => {
+        const next = row.nextElementSibling;
+        if (next && next.classList.contains('room-view-item-detail')) {
+          next.remove();
+          row.classList.remove('expanded');
+          return;
+        }
+        const detailWrap = document.createElement('div');
+        detailWrap.className = 'room-view-item-detail';
+        detailWrap.appendChild(this.renderItemDetail(item, code));
+        row.after(detailWrap);
+        row.classList.add('expanded');
+      });
+
+      listEl.appendChild(row);
+    });
+
+    this.filterItems();
+  }
+
+  exitRoomView() {
+    document.getElementById('room-view-container')?.classList.add('hidden');
+    this.map.selectedCode = null;
+    this.currentSidebarRoomCode = null;
+
+    const buildingConfig = this._getBuilding(this.activeBuilding) || {};
+    const noFloorPlan = buildingConfig.hasFloorPlan === false || !buildingConfig.floorPlan;
+    const isStorage = CONFIG.STORAGE_BUILDING_IDS &&
+      CONFIG.STORAGE_BUILDING_IDS.includes(buildingConfig.buildingCode);
+    const isAll = this.activeBuilding === 'all';
+    const isRequests = this.activeBuilding === 'requests';
+
+    if (isRequests) {
+      this.viewMode = 'list';
+      document.getElementById('requests-container')?.classList.remove('hidden');
+    } else if (isAll || isStorage || noFloorPlan) {
+      this.viewMode = 'list';
+      document.querySelector('.map-container')?.classList.add('hidden');
+      document.getElementById('list-container')?.classList.remove('hidden');
+    } else {
+      this.viewMode = 'map';
+      document.querySelector('.map-container')?.classList.remove('hidden');
+      document.getElementById('list-container')?.classList.add('hidden');
+    }
+
+    document.querySelectorAll('.view-btn').forEach(b =>
+      b.classList.toggle('active', b.dataset.view === this.viewMode));
+
+    this.map.renderPins();
+  }
+
+  _getFirstItemPhotoUrl(item) {
+    const photos = Array.isArray(item.photos) ? item.photos : [];
+    for (let i = 0; i < photos.length; i++) {
+      const p = photos[i];
+      let urlStr = typeof p === 'string' ? p : (p && p.url ? p.url : '');
+      if (urlStr && urlStr.startsWith('http')) return urlStr;
+    }
+    const norm = this.normalizeItemFields(item);
+    if (norm.nameplate_photo && norm.nameplate_photo.startsWith('http')) {
+      return norm.nameplate_photo;
+    }
+    return null;
   }
 
   createItemElement(item) {
