@@ -312,29 +312,39 @@ const TAB_CONFIG = {
 
 // ─── Load data from API ───
 async function loadData() {
-  if (!CONFIG || !CONFIG.API_URL) { alert('CONFIG.API_URL missing — check js/config.js'); return; }
+  if (typeof CONFIG === 'undefined' || !CONFIG.API_URL) {
+    alert('CONFIG.API_URL missing — check js/config.js');
+    return;
+  }
+
+  const apiUrl = CONFIG.API_URL + '?action=getAll&nocache=' + Date.now();
 
   try {
-    const resp = await fetch(CONFIG.API_URL + '?action=getAll');
+    const resp = await fetch(apiUrl);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const data = await resp.json();
-    
+    if (data.error) throw new Error(data.error);
+
     rooms = data.rooms || [];
     buildings = data.buildings || [];
-    
-    // Load saved pins from localStorage
-    const saved = localStorage.getItem('villa_pins');
-    if (saved) pins = JSON.parse(saved);
-    
-    // Also load pins from API data (existing Pin_X/Pin_Y)
+
+    try {
+      const saved = localStorage.getItem('villa_pins');
+      if (saved) pins = JSON.parse(saved);
+    } catch (e) {
+      console.warn('villa_pins localStorage ignored:', e.message);
+      pins = {};
+    }
+
     rooms.forEach(r => {
       if (r.pin_x && r.pin_y && !pins[r.id]) {
         pins[r.id] = { x: Number(r.pin_x), y: Number(r.pin_y) };
       }
     });
-    
+
     onPlanChange();
-  } catch(e) {
-    alert('Error: ' + e.message);
+  } catch (e) {
+    alert('Error loading rooms: ' + e.message);
   }
 }
 
