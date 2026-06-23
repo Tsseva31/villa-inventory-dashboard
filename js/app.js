@@ -20,6 +20,8 @@ class App {
     this.items = [];
     this.storageItems = [];
     this.ownerRequests = [];
+    this.repairRequests = [];
+    this.movementLog = [];
     this.roomsCoords = {};
     this.roomIdToCode = {};
     this.roomIdToZoneId = {};
@@ -618,7 +620,10 @@ class App {
         const link = document.createElement('span');
         link.className = 'list-photo-link';
         link.textContent = '📷 ' + listPhotoUrls.length;
-        link.addEventListener('click', () => this.openLightbox(listPhotoUrls, 0));
+        link.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.openLightbox(listPhotoUrls, 0);
+        });
         tdPhoto.appendChild(link);
       } else {
         tdPhoto.textContent = '—';
@@ -635,6 +640,24 @@ class App {
         tdDate.textContent = '—';
       }
       tr.appendChild(tdDate);
+
+      tr.classList.add('list-item-row');
+      tr.addEventListener('click', () => {
+        const next = tr.nextElementSibling;
+        if (next && next.classList.contains('list-item-detail-row')) {
+          next.remove();
+          tr.classList.remove('expanded');
+          return;
+        }
+        const detailTr = document.createElement('tr');
+        detailTr.className = 'list-item-detail-row';
+        const detailTd = document.createElement('td');
+        detailTd.colSpan = tr.children.length;
+        detailTd.appendChild(this.renderItemDetail(item, code));
+        detailTr.appendChild(detailTd);
+        tr.after(detailTr);
+        tr.classList.add('expanded');
+      });
 
       tbody.appendChild(tr);
     });
@@ -809,13 +832,17 @@ class App {
       this.items = data.items || [];
       this.storageItems = data.storage_items || [];
       this.ownerRequests = data.owner_requests || [];
+      this.repairRequests = data.repair_requests || [];
+      this.movementLog = data.movement_log || [];
 
       this.rooms.forEach(room => {
         this.roomIdToCode[room.id] = room.code;
         this.roomIdToZoneId[room.id] = room.zone_id;
       });
 
-      console.log('[loadData] Loaded:', this.items.length, 'items,', this.storageItems.length, 'storage,', this.ownerRequests.length, 'requests');
+      console.log('[loadData] Loaded:', this.items.length, 'items,', this.storageItems.length, 'storage,',
+        this.ownerRequests.length, 'requests,', this.repairRequests.length, 'repairs,',
+        this.movementLog.length, 'moves');
     } catch (e) {
       console.error('Data loading error:', e);
       window._apiUnavailable = true;
@@ -1199,19 +1226,45 @@ class App {
 
   createItemElement(item) {
     const norm = this.normalizeItemFields(item);
+    const itemEl = document.createElement('div');
+    itemEl.className = 'item item-card';
+    itemEl.dataset.category = norm.category;
+    itemEl.dataset.condition = norm.condition || '';
+    itemEl.dataset.roomCode = item.room_code || '';
+    const roomCode = this.currentSidebarRoomCode || item.room_code || '';
+    itemEl.appendChild(this.renderItemDetail(item, roomCode));
+    return itemEl;
+  }
+
+  /** Shared item detail block for sidebar cards and list-view expand rows. */
+  renderItemDetail(item, roomCode) {
+    const norm = this.normalizeItemFields(item);
     const actualCondition = norm.condition;
     const actualQuantity = parseInt(norm.quantity, 10) || 1;
     const actualCategory = norm.category;
+    const resolvedRoomCode = roomCode || item.room_code || '';
 
-    // === СОЗДАНИЕ ЭЛЕМЕНТА ===
-    const itemEl = document.createElement('div');
-    itemEl.className = 'item item-card';
+    const block = document.createElement('div');
+    block.className = 'item-detail-block';
 
-    itemEl.dataset.category = actualCategory;
-    itemEl.dataset.condition = actualCondition || '';
-    itemEl.dataset.roomCode = item.room_code || '';
+    const metaEl = document.createElement('div');
+    metaEl.className = 'item-meta';
+    metaEl.style.cssText = 'font-size:12px;color:#888;margin-bottom:8px;line-height:1.5;';
+    const itemId = item.id || item.item_id || '';
+    const serialModel = norm.serial_model || '—';
+    const createdAt = item.created_at ? normalizeTs(item.created_at) : '—';
+    metaEl.innerHTML =
+      '<div><strong>ID:</strong> ' + (itemId || '—') + '</div>' +
+      '<div><strong>Модель / серийный:</strong> ' + serialModel + '</div>' +
+      '<div><strong>Создано:</strong> ' + createdAt + '</div>';
+    block.appendChild(metaEl);
 
-    // === КАТЕГОРИЯ (цветной бейдж) ===
+    const descriptionEl = document.createElement('div');
+    descriptionEl.className = 'item-description';
+    descriptionEl.style.cssText = 'font-size:14px;color:#333;margin-bottom:8px;line-height:1.4;';
+    descriptionEl.textContent = item.description || 'Без описания';
+    block.appendChild(descriptionEl);
+
     const categoryColor = (CONFIG.CATEGORY_COLORS && CONFIG.CATEGORY_COLORS[actualCategory]) || '#999999';
     const CATEGORY_LABELS = {
       light: 'Light / Освещение',
@@ -1230,20 +1283,14 @@ class App {
     categoryBadge.className = 'item-category';
     categoryBadge.style.cssText = 'background-color:' + categoryColor + ';color:white;padding:4px 12px;border-radius:4px;font-size:12px;font-weight:bold;display:inline-block;margin-bottom:8px;';
     categoryBadge.textContent = CATEGORY_LABELS[actualCategory] || actualCategory;
+    block.appendChild(categoryBadge);
 
-    // === КОД КОМНАТЫ ===
     const roomCodeEl = document.createElement('div');
     roomCodeEl.className = 'item-room-code';
     roomCodeEl.style.cssText = 'font-size:13px;font-weight:600;color:#888;margin-bottom:4px;';
-    roomCodeEl.textContent = item.room_code || '—';
+    roomCodeEl.textContent = resolvedRoomCode || '—';
+    block.appendChild(roomCodeEl);
 
-    // === ОПИСАНИЕ ===
-    const descriptionEl = document.createElement('div');
-    descriptionEl.className = 'item-description';
-    descriptionEl.style.cssText = 'font-size:14px;color:#333;margin-bottom:8px;line-height:1.4;';
-    descriptionEl.textContent = item.description || 'Без описания';
-
-    // === СОСТОЯНИЕ ===
     const conditionEl = document.createElement('div');
     conditionEl.className = 'item-condition-wrap';
     conditionEl.style.cssText = 'font-size:13px;margin-bottom:6px;';
@@ -1258,17 +1305,16 @@ class App {
     conditionBadge.textContent = actualCondition || '—';
     conditionEl.appendChild(conditionLabel);
     conditionEl.appendChild(conditionBadge);
+    block.appendChild(conditionEl);
 
-    // === КОЛИЧЕСТВО ===
     const quantityEl = document.createElement('div');
     quantityEl.className = 'item-quantity';
     quantityEl.style.cssText = 'font-size:13px;color:#666;margin-bottom:8px;';
     quantityEl.innerHTML = '<strong>Qty:</strong> ' + actualQuantity;
+    block.appendChild(quantityEl);
 
-    // === РЕМОНТ (badge) ===
-    let repairEl = null;
     if (norm.repair_status) {
-      repairEl = document.createElement('div');
+      const repairEl = document.createElement('div');
       repairEl.style.cssText = 'font-size:12px;font-weight:600;margin-top:4px;margin-bottom:6px;';
       const badgeMap = {
         pending:     { icon: '🔧', color: '#F39C12', label: 'Ремонт ожидает' },
@@ -1277,16 +1323,15 @@ class App {
         done:        { icon: '✅', color: '#27AE60', label: 'Ремонт завершён' },
       };
       const b = badgeMap[norm.repair_status] || { icon: '🔧', color: '#F39C12', label: norm.repair_status };
-      repairEl.innerHTML = `<span style="background:${b.color};color:#fff;padding:2px 8px;border-radius:4px">${b.icon} ${b.label}</span>`;
+      repairEl.innerHTML = '<span style="background:' + b.color + ';color:#fff;padding:2px 8px;border-radius:4px">' + b.icon + ' ' + b.label + '</span>';
+      block.appendChild(repairEl);
     }
 
-    // === ФОТО ===
     const itemPhotos = document.createElement('div');
     itemPhotos.className = 'item-photos';
     itemPhotos.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;';
-
-    const rawPhotos = (item.photos && Array.isArray(item.photos)) ? item.photos : [];
     const allPhotoUrls = [];
+    const rawPhotos = (item.photos && Array.isArray(item.photos)) ? item.photos : [];
     rawPhotos.forEach(photoUrl => {
       let urlStr = '';
       if (typeof photoUrl === 'string') urlStr = photoUrl;
@@ -1297,35 +1342,17 @@ class App {
     if (norm.nameplate_photo && norm.nameplate_photo.startsWith('http')) {
       allPhotoUrls.push(norm.nameplate_photo);
     }
+    this._appendItemPhotoThumbnails(itemPhotos, allPhotoUrls);
+    block.appendChild(itemPhotos);
 
-    allPhotoUrls.forEach((urlStr, index) => {
-      const img = document.createElement('img');
-      const thumbnailUrl = this.getDriveThumbnail(urlStr);
-      if (thumbnailUrl) {
-        img.src = thumbnailUrl;
-        img.className = 'item-photo item-thumb';
-        img.alt = 'Photo ' + (index + 1);
-        img.style.cssText = 'width:80px;height:80px;object-fit:cover;border-radius:4px;border:1px solid #ddd;cursor:pointer;transition:opacity 0.2s;';
-        img.dataset.photoUrl = urlStr;
-        img.onerror = () => {
-          console.error('[createItemElement] Failed to load photo ' + index + ':', urlStr);
-          img.style.display = 'none';
-        };
-        img.onclick = () => this.openLightbox(allPhotoUrls, index);
-        itemPhotos.appendChild(img);
-      }
-    });
+    block.appendChild(this._renderRepairTimeline(itemId));
+    block.appendChild(this._renderMovementTimeline(itemId));
 
-    // === ACTION BUTTONS (deeplinks to bot) ===
     const actionsEl = document.createElement('div');
     actionsEl.className = 'item-actions';
     actionsEl.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid #eee;';
 
-    const itemId = item.id || item.item_id || '';
-    const roomCode = item.room_code || '';
-
     if (itemId) {
-      // Move button
       const moveBtn = document.createElement('a');
       moveBtn.href = BOT_DEEPLINK + 'move_' + encodeURIComponent(itemId);
       moveBtn.target = '_blank';
@@ -1334,7 +1361,6 @@ class App {
       moveBtn.textContent = '📦 Переместить';
       actionsEl.appendChild(moveBtn);
 
-      // Repair button
       const repairBtn = document.createElement('a');
       repairBtn.href = BOT_DEEPLINK + 'repair_' + encodeURIComponent(itemId);
       repairBtn.target = '_blank';
@@ -1344,13 +1370,11 @@ class App {
       actionsEl.appendChild(repairBtn);
     }
 
-    // Report button (always available — uses room context, not item)
-    if (roomCode || this.currentSidebarRoomCode) {
+    if (resolvedRoomCode || this.currentSidebarRoomCode) {
       const reportBtn = document.createElement('a');
       const buildingConfig = this._getBuilding(this.activeBuilding);
       const buildingId = buildingConfig ? buildingConfig.buildingId : 0;
-      // Find room_id from rooms array
-      const rCode = roomCode || this.currentSidebarRoomCode;
+      const rCode = resolvedRoomCode || this.currentSidebarRoomCode;
       const roomObj = this.rooms.find(r => r.code === rCode);
       const roomId = roomObj ? roomObj.id : 0;
       reportBtn.href = BOT_DEEPLINK + 'report_' + buildingId + '_' + roomId;
@@ -1361,17 +1385,168 @@ class App {
       actionsEl.appendChild(reportBtn);
     }
 
-    // === СБОРКА ===
-    itemEl.appendChild(categoryBadge);
-    itemEl.appendChild(roomCodeEl);
-    itemEl.appendChild(descriptionEl);
-    itemEl.appendChild(conditionEl);
-    itemEl.appendChild(quantityEl);
-    if (repairEl) itemEl.appendChild(repairEl);
-    itemEl.appendChild(itemPhotos);
-    itemEl.appendChild(actionsEl);
+    block.appendChild(actionsEl);
+    return block;
+  }
 
-    return itemEl;
+  _idTimestampSortKey(id) {
+    const m = String(id || '').match(/(\d{8})-(\d{6})/);
+    return m ? m[1] + m[2] : '';
+  }
+
+  _collectRepairRequestPhotos(req) {
+    const urls = [];
+    for (let i = 1; i <= 5; i++) {
+      const url = req['photo_' + i];
+      if (url && String(url).startsWith('http')) urls.push(String(url));
+    }
+    for (let i = 1; i <= 3; i++) {
+      const url = req['completed_photo_' + i];
+      if (url && String(url).startsWith('http')) urls.push(String(url));
+    }
+    return urls;
+  }
+
+  _appendItemPhotoThumbnails(container, allPhotoUrls) {
+    allPhotoUrls.forEach((urlStr, index) => {
+      const img = document.createElement('img');
+      const thumbnailUrl = this.getDriveThumbnail(urlStr);
+      if (!thumbnailUrl) return;
+      img.src = thumbnailUrl;
+      img.className = 'item-photo item-thumb';
+      img.alt = 'Photo ' + (index + 1);
+      img.style.cssText = 'width:80px;height:80px;object-fit:cover;border-radius:4px;border:1px solid #ddd;cursor:pointer;transition:opacity 0.2s;';
+      img.dataset.photoUrl = urlStr;
+      img.onerror = () => { img.style.display = 'none'; };
+      img.onclick = (e) => {
+        e.stopPropagation();
+        this.openLightbox(allPhotoUrls, index);
+      };
+      container.appendChild(img);
+    });
+  }
+
+  _renderRepairTimeline(itemId) {
+    const section = document.createElement('div');
+    section.className = 'item-timeline item-timeline-repairs';
+    section.style.cssText = 'margin-top:12px;padding-top:10px;border-top:1px solid #eee;';
+
+    const heading = document.createElement('div');
+    heading.style.cssText = 'font-size:13px;font-weight:600;color:#555;margin-bottom:6px;';
+    heading.textContent = 'История ремонта';
+    section.appendChild(heading);
+
+    const requests = (this.repairRequests || [])
+      .filter(r => String(r.item_id) === String(itemId))
+      .sort((a, b) => {
+        const ta = this._idTimestampSortKey(a.request_id) || normalizeTs(a.created_at);
+        const tb = this._idTimestampSortKey(b.request_id) || normalizeTs(b.created_at);
+        return ta.localeCompare(tb);
+      });
+
+    if (!requests.length) {
+      const empty = document.createElement('div');
+      empty.className = 'timeline-empty';
+      empty.style.cssText = 'font-size:12px;color:#aaa;font-style:italic;';
+      empty.textContent = 'нет данных';
+      section.appendChild(empty);
+      return section;
+    }
+
+    requests.forEach(req => {
+      const row = document.createElement('div');
+      row.className = 'timeline-row';
+      row.style.cssText = 'font-size:12px;color:#444;margin-bottom:10px;padding:8px;background:#f8f8fc;border-radius:4px;';
+
+      const status = req.status || '—';
+      const created = normalizeTs(req.created_at) || '—';
+      const desc = req.description || '—';
+      const people = (req.reported_by_name || '—') + ' → ' + (req.assigned_to_name || '—');
+
+      let html = '<div><strong>' + status + '</strong> · ' + created + '</div>' +
+        '<div style="margin-top:4px">' + desc + '</div>' +
+        '<div style="margin-top:4px;color:#666">' + people + '</div>';
+
+      if (req.completion_note || req.completed_at) {
+        const note = req.completion_note || '';
+        const completed = req.completed_at ? normalizeTs(req.completed_at) : '';
+        html += '<div style="margin-top:4px;color:#2e7d32">';
+        if (note) html += note;
+        if (completed) html += (note ? ' · ' : '') + completed;
+        html += '</div>';
+      }
+
+      row.innerHTML = html;
+
+      const photoUrls = this._collectRepairRequestPhotos(req);
+      if (photoUrls.length) {
+        const photosWrap = document.createElement('div');
+        photosWrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;';
+        this._appendItemPhotoThumbnails(photosWrap, photoUrls);
+        row.appendChild(photosWrap);
+      }
+
+      section.appendChild(row);
+    });
+
+    return section;
+  }
+
+  _formatMovementLocation(prefix, row) {
+    const building = row[prefix + '_building'] || '';
+    const zone = row[prefix + '_zone'] || '';
+    const room = row[prefix + '_room'] || '';
+    const parts = [building, zone, room].filter(p => p !== '' && p != null);
+    return parts.length ? parts.join(' / ') : '—';
+  }
+
+  _renderMovementTimeline(itemId) {
+    const section = document.createElement('div');
+    section.className = 'item-timeline item-timeline-moves';
+    section.style.cssText = 'margin-top:12px;padding-top:10px;border-top:1px solid #eee;';
+
+    const heading = document.createElement('div');
+    heading.style.cssText = 'font-size:13px;font-weight:600;color:#555;margin-bottom:6px;';
+    heading.textContent = 'История перемещений';
+    section.appendChild(heading);
+
+    const moves = (this.movementLog || [])
+      .filter(m => String(m.item_id) === String(itemId))
+      .sort((a, b) => {
+        const ta = this._idTimestampSortKey(a.move_id) || normalizeTs(a.moved_at);
+        const tb = this._idTimestampSortKey(b.move_id) || normalizeTs(b.moved_at);
+        return ta.localeCompare(tb);
+      });
+
+    if (!moves.length) {
+      const empty = document.createElement('div');
+      empty.className = 'timeline-empty';
+      empty.style.cssText = 'font-size:12px;color:#aaa;font-style:italic;';
+      empty.textContent = 'нет данных';
+      section.appendChild(empty);
+      return section;
+    }
+
+    moves.forEach(move => {
+      const row = document.createElement('div');
+      row.className = 'timeline-row';
+      row.style.cssText = 'font-size:12px;color:#444;margin-bottom:8px;padding:8px;background:#f8f8fc;border-radius:4px;';
+
+      const fromLoc = this._formatMovementLocation('from', move);
+      const toLoc = this._formatMovementLocation('to', move);
+      const movedBy = move.moved_by_name || '—';
+      const movedAt = normalizeTs(move.moved_at) || '—';
+      const reason = move.reason || '—';
+
+      row.innerHTML =
+        '<div><strong>' + fromLoc + '</strong> → <strong>' + toLoc + '</strong></div>' +
+        '<div style="margin-top:4px;color:#666">' + movedBy + ' · ' + movedAt + '</div>' +
+        (reason !== '—' ? '<div style="margin-top:4px">' + reason + '</div>' : '');
+
+      section.appendChild(row);
+    });
+
+    return section;
   }
 
   getDriveThumbnail(url) {

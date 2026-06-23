@@ -607,6 +607,18 @@ body {
 }
 .list-photo-link:hover { text-decoration: underline; }
 
+.list-item-row { cursor: pointer; }
+.list-item-row:hover { background: rgba(255, 255, 255, 0.03); }
+.list-item-row.expanded { background: rgba(33, 150, 243, 0.08); }
+.list-item-detail-row td {
+  padding: 0.75rem 1rem;
+  background: #1e1e35;
+  border-bottom: 1px solid #333;
+  vertical-align: top;
+}
+.item-detail-block .item-description { color: #ddd; }
+.item-detail-block .timeline-row { background: #252540 !important; color: #ccc !important; }
+
 /* ── Mobile ───────────────────────────────────── */
 @media (max-width: 768px) {
   .list-container { padding: 0 0.5rem 0.5rem; }

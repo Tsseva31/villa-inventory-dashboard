@@ -1,5 +1,14 @@
 // api.js — Requests to Apps Script Web App + mock data fallback
 
+/** Extract YYYY-MM-DD HH:MM:SS from mixed timestamp strings; no Date parsing. */
+function normalizeTs(s) {
+  if (s == null || s === '') return '';
+  const str = String(s);
+  const m = str.match(/(\d{4}-\d{2}-\d{2})[T\s](\d{2}:\d{2}:\d{2})/);
+  if (m) return m[1] + ' ' + m[2];
+  return str;
+}
+
 const MOCK_DATA = {
   rooms: [],
   items: [],
@@ -85,7 +94,9 @@ class API {
       rooms: data.rooms || [],
       items: data.items || [],
       storage_items: storage_items,
-      owner_requests: owner_requests
+      owner_requests: owner_requests,
+      repair_requests: data.repair_requests || [],
+      movement_log: data.movement_log || []
     };
   }
 }
