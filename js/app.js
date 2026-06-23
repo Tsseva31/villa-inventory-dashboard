@@ -37,6 +37,8 @@ class App {
       room: ''
     };
 
+    this.roomViewSearch = '';
+
     this.init();
   }
 
@@ -1057,7 +1059,9 @@ class App {
 
       const categoryMatch = !selectedCategory || selectedCategory === '' || itemCategory === selectedCategory;
       const conditionMatch = !selectedCondition || selectedCondition === '' || itemCondition === selectedCondition;
-      const visible = categoryMatch && conditionMatch;
+      const searchTerm = this.roomViewSearch || '';
+      const searchMatch = !searchTerm || (row.dataset.searchText || '').includes(searchTerm);
+      const visible = categoryMatch && conditionMatch && searchMatch;
 
       row.style.display = visible ? '' : 'none';
       const next = row.nextElementSibling;
@@ -1112,6 +1116,14 @@ class App {
     const backBtn = document.getElementById('room-view-back');
     if (backBtn) {
       backBtn.addEventListener('click', () => this.exitRoomView());
+    }
+
+    const searchInput = document.getElementById('room-view-search');
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        this.roomViewSearch = e.target.value.trim().toLowerCase();
+        this.filterItems();
+      });
     }
   }
 
@@ -1180,6 +1192,64 @@ class App {
     return fileId ? 'https://drive.google.com/thumbnail?id=' + fileId + '&sz=w1200' : normalized;
   }
 
+  _isItemComplete(item) {
+    const hasPhoto = Array.isArray(item.photos) && item.photos.length > 0;
+    const hasDesc = typeof item.description === 'string' && item.description.trim().length > 0;
+    return hasPhoto || hasDesc;
+  }
+
+  _renderRoomViewMeta(roomItems) {
+    const countersEl = document.getElementById('room-view-counters');
+    const completenessEl = document.getElementById('room-view-completeness');
+    const conditionsEl = document.getElementById('room-view-conditions');
+
+    const roomCount = roomItems.length;
+    const buildingCount = this.items.filter(i => this.itemBelongsToBuilding(i)).length;
+    const villaCount = this.items.length;
+
+    if (countersEl) {
+      countersEl.textContent = 'Комната: ' + roomCount + ' · Здание: ' + buildingCount + ' · Вилла: ' + villaCount;
+    }
+
+    if (completenessEl) {
+      if (roomCount === 0) {
+        completenessEl.textContent = '—';
+      } else {
+        const complete = roomItems.filter(i => this._isItemComplete(i)).length;
+        const pct = Math.round((complete / roomCount) * 100);
+        completenessEl.textContent = 'Полнота: ' + complete + '/' + roomCount + ' (' + pct + '%)';
+      }
+    }
+
+    if (conditionsEl) {
+      conditionsEl.innerHTML = '';
+      const counts = {};
+      roomItems.forEach(item => {
+        const norm = this.normalizeItemFields(item);
+        const key = norm.condition || '';
+        if (!key) return;
+        counts[key] = (counts[key] || 0) + 1;
+      });
+
+      const orderedKeys = [];
+      (CONFIG.CONDITIONS || []).forEach(opt => {
+        if (opt.value && counts[opt.value]) orderedKeys.push(opt.value);
+      });
+      Object.keys(counts).forEach(k => {
+        if (!orderedKeys.includes(k)) orderedKeys.push(k);
+      });
+
+      orderedKeys.forEach(condition => {
+        const chip = document.createElement('span');
+        chip.className = 'room-view-condition-chip';
+        const condColor = (CONFIG.CONDITION_COLORS && CONFIG.CONDITION_COLORS[condition]) || '#888';
+        chip.style.backgroundColor = condColor;
+        chip.textContent = condition + ': ' + counts[condition];
+        conditionsEl.appendChild(chip);
+      });
+    }
+  }
+
   openRoomView(code) {
     this.viewMode = 'room';
     this.currentSidebarRoomCode = code;
@@ -1193,6 +1263,10 @@ class App {
   }
 
   renderRoomView(code) {
+    this.roomViewSearch = '';
+    const searchInput = document.getElementById('room-view-search');
+    if (searchInput) searchInput.value = '';
+
     const roomCoords = this.roomsCoords[code] || { name: code };
     const titleEl = document.getElementById('room-view-title');
     if (titleEl) titleEl.textContent = code + ' — ' + roomCoords.name;
@@ -1202,6 +1276,7 @@ class App {
     listEl.innerHTML = '';
 
     const roomItems = this.getItemsByRoom()[code] || [];
+    this._renderRoomViewMeta(roomItems);
 
     if (roomItems.length === 0) {
       listEl.innerHTML = '<div class="room-view-empty">No items</div>';
@@ -1212,8 +1287,14 @@ class App {
       const norm = this.normalizeItemFields(item);
       const row = document.createElement('div');
       row.className = 'room-view-item-row';
+      if (!this._isItemComplete(item)) {
+        row.classList.add('room-view-item-row--incomplete');
+      }
       row.dataset.category = norm.category;
       row.dataset.condition = norm.condition || '';
+      const searchName = (item.item_name || item.name || '').toLowerCase();
+      const searchDesc = (typeof item.description === 'string' ? item.description : '').toLowerCase();
+      row.dataset.searchText = (searchName + ' ' + searchDesc).trim();
 
       const thumbWrap = document.createElement('div');
       thumbWrap.className = 'room-view-item-thumb';

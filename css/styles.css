@@ -207,6 +207,68 @@ body {
   line-height: 1.35;
 }
 
+.room-view-meta {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid #333;
+  background: var(--sidebar-bg, #1a1a2e);
+}
+
+.room-view-counters,
+.room-view-completeness {
+  font-size: 0.8rem;
+  color: #aaa;
+  white-space: nowrap;
+}
+
+.room-view-completeness {
+  color: #bbb;
+}
+
+.room-view-conditions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.room-view-condition-chip {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.room-view-search {
+  flex: 1 1 10rem;
+  min-width: 8rem;
+  max-width: 100%;
+  margin-left: auto;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid #444;
+  border-radius: 6px;
+  background: #252540;
+  color: #eee;
+  font-size: 0.85rem;
+}
+
+.room-view-search::placeholder {
+  color: #777;
+}
+
+.room-view-search:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
 .room-view-list {
   flex: 1;
   overflow-y: auto;
@@ -231,6 +293,11 @@ body {
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s;
+}
+
+.room-view-item-row--incomplete {
+  border-left: 3px solid #F39C12;
+  padding-left: calc(0.75rem - 2px);
 }
 
 .room-view-item-row:hover {
