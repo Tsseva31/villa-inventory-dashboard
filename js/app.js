@@ -3,6 +3,16 @@
 // Bot deeplink base URL
 const BOT_DEEPLINK = 'https://t.me/villa_inventory_bot?start=';
 
+let sessionCode = null;
+
+async function ensureCode() {
+  if (sessionCode) return sessionCode;
+  const entered = window.prompt('Введите 4-значный код доступа:');
+  if (entered == null || entered.trim() === '') return null;
+  sessionCode = entered.trim();
+  return sessionCode;
+}
+
 /** Convert Google Drive view/share URL to direct uc?id= form for reliable embedding. */
 function convertDriveUrl(url) {
   if (!url || typeof url !== 'string') return null;
@@ -1484,6 +1494,64 @@ class App {
     quantityEl.style.cssText = 'font-size:13px;color:#666;margin-bottom:8px;';
     quantityEl.innerHTML = '<strong>Qty:</strong> ' + actualQuantity;
     block.appendChild(quantityEl);
+
+    if (itemId) {
+      const statusRow = document.createElement('div');
+      statusRow.className = 'item-status-change';
+      statusRow.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:8px;margin-bottom:8px;flex-wrap:wrap;';
+
+      const statusSelect = document.createElement('select');
+      statusSelect.style.cssText = 'padding:4px 8px;border:1px solid #ddd;border-radius:4px;font-size:12px;';
+      const optActive = document.createElement('option');
+      optActive.value = 'active';
+      optActive.textContent = 'active';
+      const optRepair = document.createElement('option');
+      optRepair.value = 'repair';
+      optRepair.textContent = 'repair';
+      optRepair.selected = true;
+      statusSelect.appendChild(optActive);
+      statusSelect.appendChild(optRepair);
+
+      const applyBtn = document.createElement('button');
+      applyBtn.type = 'button';
+      applyBtn.textContent = 'Применить';
+      applyBtn.style.cssText = 'padding:4px 12px;background:#555;color:#fff;border:none;border-radius:4px;font-size:12px;cursor:pointer;';
+
+      const feedbackEl = document.createElement('span');
+      feedbackEl.style.cssText = 'font-size:12px;color:#666;';
+
+      applyBtn.addEventListener('click', async () => {
+        const code = await ensureCode();
+        if (!code) return;
+
+        applyBtn.disabled = true;
+        feedbackEl.textContent = '';
+
+        const res = await api.changeItemStatus(itemId, statusSelect.value, code);
+
+        if (res.ok) {
+          feedbackEl.style.color = '#27AE60';
+          feedbackEl.textContent = '✓ ' + res.old + ' → ' + res.new + ' (' + res.by + ')';
+        } else if (res.reason === 'invalid_code') {
+          sessionCode = null;
+          feedbackEl.style.color = '#E74C3C';
+          feedbackEl.textContent = 'Неверный код';
+        } else if (res.reason === 'network') {
+          feedbackEl.style.color = '#E74C3C';
+          feedbackEl.textContent = 'Ошибка сети, попробуйте ещё раз';
+        } else {
+          feedbackEl.style.color = '#E74C3C';
+          feedbackEl.textContent = res.reason || 'Ошибка';
+        }
+
+        applyBtn.disabled = false;
+      });
+
+      statusRow.appendChild(statusSelect);
+      statusRow.appendChild(applyBtn);
+      statusRow.appendChild(feedbackEl);
+      block.appendChild(statusRow);
+    }
 
     if (norm.repair_status) {
       const repairEl = document.createElement('div');

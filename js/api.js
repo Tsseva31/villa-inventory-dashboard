@@ -99,6 +99,27 @@ class API {
       movement_log: data.movement_log || []
     };
   }
+
+  async changeItemStatus(itemId, newStatus, code) {
+    if (!this.baseUrl) {
+      return { ok: false, reason: 'network' };
+    }
+    try {
+      const res = await fetch(this.baseUrl, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'dashboardChangeStatus',
+          code: code,
+          item_id: itemId,
+          new_status: newStatus
+        })
+      });
+      return await res.json();
+    } catch (e) {
+      console.error('changeItemStatus error:', e);
+      return { ok: false, reason: 'network' };
+    }
+  }
 }
 
 const api = new API();
